@@ -211,34 +211,6 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
-    public var badgeText: String {
-        switch self {
-        case .smartScan: "One-Click"
-        case .systemJunk: "Storage"
-        case .mailAttachments: "Mail"
-        case .trashBins: "Trash"
-        case .diskHogs: "Heavy Folders"
-        case .projectJunk: "Developer"
-        case .cleanHistory: "Audit Log"
-        case .malwareRemoval: "Security"
-        case .privacy: "Privacy"
-        case .wifiNetworks: "Network"
-        case .appPermissions: "Permissions"
-        case .browserExtensions: "Extensions"
-        case .optimization: "System Speed"
-        case .maintenance: "Maintenance"
-        case .uninstaller: "Apps"
-        case .unusedApps: "Storage"
-        case .extensions: "Extensions"
-        case .updater: "Updates"
-        case .spaceLens: "Storage Map"
-        case .largeOldFiles: "Archives"
-        case .duplicates: "Deduplication"
-        case .shredder: "Security Wipe"
-        case .settings: "Preferences"
-        }
-    }
-
     public var actionTitle: String {
         switch self {
         case .smartScan: "Start Scan"
@@ -339,57 +311,6 @@ public enum SidebarCategory: String, CaseIterable, Identifiable {
             "Preferences, exclusions, and app configuration."
         }
     }
-
-    public var heroSubItem: SidebarItem {
-        switch self {
-        case .smartScan: .smartScan
-        case .cleanup: .systemJunk
-        case .protection: .malwareRemoval
-        case .performance: .maintenance
-        case .applications: .uninstaller
-        case .files: .spaceLens
-        case .settings: .settings
-        }
-    }
-
-    public var heroTitle: String {
-        switch self {
-        case .smartScan:
-            "Smart Scan Overview"
-        case .cleanup:
-            "System Junk & Caches"
-        case .protection:
-            "Malware & Threat Defense"
-        case .performance:
-            "Recommended Maintenance Tasks"
-        case .applications:
-            "Complete Application Removal"
-        case .files:
-            "Visual Storage Map"
-        case .settings:
-            "Settings & Preferences"
-        }
-    }
-
-    public var heroDescription: String {
-        switch self {
-        case .smartScan:
-            "Comprehensive analysis of junk files, malware threats, and system performance."
-        case .cleanup:
-            "Clean caches, logs, and localization files safely to free up gigabytes of disk space."
-        case .protection:
-            "Scan running memory, launch agents, and app bundles for security threats and malicious software."
-        case .performance:
-            "Run curated macOS maintenance routines: flush DNS cache, reindex Spotlight, and repair permissions."
-        case .applications:
-            "Uninstall unwanted software and eliminate all leftover container files, preferences, and caches."
-        case .files:
-            "Interactive proportional map of your drive to pinpoint heavy folders and forgotten large files."
-        case .settings:
-            "Configure automatic updates, folder exclusions, and widgets."
-        }
-    }
-
     public var subItems: [SidebarItem] {
         switch self {
         case .smartScan:
@@ -413,78 +334,22 @@ public enum SidebarCategory: String, CaseIterable, Identifiable {
 public struct SidebarView: View {
     @Binding var selection: SidebarCategory
     var onSelectCategory: ((SidebarCategory) -> Void)? = nil
-    var onSelectSubItem: ((SidebarItem) -> Void)? = nil
-    @State private var searchText: String = ""
 
     public init(
         selection: Binding<SidebarCategory>,
-        onSelectCategory: ((SidebarCategory) -> Void)? = nil,
-        onSelectSubItem: ((SidebarItem) -> Void)? = nil
+        onSelectCategory: ((SidebarCategory) -> Void)? = nil
     ) {
         self._selection = selection
         self.onSelectCategory = onSelectCategory
-        self.onSelectSubItem = onSelectSubItem
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            searchBar
-
-            List(selection: $selection) {
-                if searchText.isEmpty {
-                    ForEach(SidebarCategory.allCases.filter { $0 != .settings }) { category in
-                        sidebarCategoryRow(category)
-                    }
-                } else {
-                    let matchingSubItems = SidebarItem.allCases.filter {
-                        $0 != .settings && $0 != .smartScan && $0.title.localizedCaseInsensitiveContains(searchText)
-                    }
-                    let matchingCategories = SidebarCategory.allCases.filter {
-                        $0 != .settings && $0.title.localizedCaseInsensitiveContains(searchText)
-                    }
-
-                    if !matchingCategories.isEmpty {
-                        Section("Categories") {
-                            ForEach(matchingCategories) { category in
-                                sidebarCategoryRow(category)
-                            }
-                        }
-                    }
-
-                    if !matchingSubItems.isEmpty {
-                        Section("Features") {
-                            ForEach(matchingSubItems) { item in
-                                Button {
-                                    selection = item.category
-                                    onSelectSubItem?(item)
-                                } label: {
-                                    Label {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(item.title)
-                                                .font(.system(size: 13))
-                                            Text(item.category.title)
-                                                .font(.system(size: 10.5))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    } icon: {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                                .fill(item.iconColor)
-                                            Image(systemName: item.icon)
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .foregroundStyle(.white)
-                                        }
-                                        .frame(width: 20, height: 20)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
+        List(selection: $selection) {
+            ForEach(SidebarCategory.allCases.filter { $0 != .settings }) { category in
+                sidebarCategoryRow(category)
             }
-            .listStyle(.sidebar)
         }
+        .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
@@ -493,41 +358,9 @@ public struct SidebarView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(
-            minWidth: Localization.currentCode == "de" ? 240 : 200,
-            idealWidth: Localization.currentCode == "de" ? 250 : 215
+            minWidth: Localization.currentCode == "de" ? 220 : 180,
+            idealWidth: Localization.currentCode == "de" ? 230 : 195
         )
-    }
-
-    private var searchBar: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-            TextField("Search", text: $searchText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.4), lineWidth: 0.5)
-        )
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
     }
 
     private var settingsFooter: some View {

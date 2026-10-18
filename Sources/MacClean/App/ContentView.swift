@@ -21,9 +21,6 @@ struct ContentView: View {
                 ),
                 onSelectCategory: { category in
                     state.selectCategory(category)
-                },
-                onSelectSubItem: { item in
-                    state.selectItem(item)
                 }
             )
             .toolbar(removing: .sidebarToggle)
