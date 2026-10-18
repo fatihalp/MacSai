@@ -26,7 +26,7 @@ public struct ScanButton: View {
                 .frame(minWidth: 110)
         }
         .buttonStyle(.borderedProminent)
-        .tint(Color(nsColor: .systemBlue))
+        .tint(theme.accentColor)
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
     }

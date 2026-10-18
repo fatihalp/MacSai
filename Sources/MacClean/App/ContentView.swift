@@ -5,6 +5,8 @@ import MacCleanKit
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var visited: Set<SidebarItem> = []
+    @State private var history: [SidebarItem] = []
+    @State private var historyIndex: Int = -1
     @State private var updateCoordinator = UpdateCoordinator()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -40,8 +42,42 @@ struct ContentView: View {
             .background(Color.white)
         }
         .navigationTitle(appState.selectedSidebarItem?.title ?? MCConstants.appName)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                ControlGroup {
+                    Button {
+                        if historyIndex > 0 {
+                            historyIndex -= 1
+                            appState.selectedSidebarItem = history[historyIndex]
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .disabled(historyIndex <= 0)
+
+                    Button {
+                        if historyIndex + 1 < history.count {
+                            historyIndex += 1
+                            appState.selectedSidebarItem = history[historyIndex]
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(historyIndex >= history.count - 1)
+                }
+            }
+        }
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in
-            if let newValue { visited.insert(newValue) }
+            guard let newValue else { return }
+            visited.insert(newValue)
+            if historyIndex >= 0 && historyIndex < history.count && history[historyIndex] == newValue {
+                return
+            }
+            if historyIndex + 1 < history.count {
+                history.removeSubrange((historyIndex + 1)...)
+            }
+            history.append(newValue)
+            historyIndex = history.count - 1
         }
         .task {
             try? await Task.sleep(for: .seconds(3))

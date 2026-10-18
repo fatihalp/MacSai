@@ -32,11 +32,38 @@ public enum ModuleTheme {
     }
 
     public var buttonColors: [Color] {
-        [Color(nsColor: .systemBlue), Color(nsColor: .systemBlue)]
+        [accentColor, accentColor]
     }
 
     public var accentColor: Color {
-        Color(nsColor: .systemBlue)
+        switch self {
+        case .smartScan:
+            Color(nsColor: .systemIndigo)
+        case .cleanup:
+            Color(nsColor: .systemBlue)
+        case .protection:
+            Color(nsColor: .systemGreen)
+        case .performance:
+            Color(nsColor: .systemOrange)
+        case .applications:
+            Color(nsColor: .systemRed)
+        case .files:
+            Color(nsColor: .systemTeal)
+        case .settings:
+            Color(nsColor: .systemGray)
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .smartScan: "sparkles"
+        case .cleanup: "trash.fill"
+        case .protection: "shield.fill"
+        case .performance: "gauge.with.dots.needle.67percent"
+        case .applications: "square.stack.3d.up.fill"
+        case .files: "doc.fill"
+        case .settings: "gearshape.fill"
+        }
     }
 }
 

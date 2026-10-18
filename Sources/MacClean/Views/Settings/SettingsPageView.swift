@@ -179,7 +179,7 @@ struct SettingsPageView: View {
     }
 
     private var generalSection: some View {
-        Section(String(localized: "General")) {
+        Section("General") {
 
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -254,7 +254,7 @@ struct SettingsPageView: View {
     }
 
     private var interfaceLanguageSection: some View {
-        Section(String(localized: "Interface Language")) {
+        Section("Interface Language") {
             Picker("Language", selection: $appLanguage) {
                 ForEach(AppLanguage.all) { language in
                     Text(language.name).tag(language.id)
@@ -273,7 +273,7 @@ struct SettingsPageView: View {
     }
 
     private var appearanceSection: some View {
-        Section(String(localized: "Appearance")) {
+        Section("Appearance") {
             Picker("Theme", selection: $appearanceRaw) {
                 ForEach(AppearanceMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
@@ -300,7 +300,7 @@ struct SettingsPageView: View {
     }
 
     private var languageSection: some View {
-        Section(String(localized: "Language Cleanup")) {
+        Section("Language Cleanup") {
             Text("English, Base resources, Chinese, Russian, and German are always kept. Checked languages are preserved; unchecked language files can be removed by System Junk.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -350,7 +350,7 @@ struct SettingsPageView: View {
     }
 
     private var excludedFoldersSection: some View {
-        Section(String(localized: "Excluded Folders")) {
+        Section("Excluded Folders") {
             Text("These folders and their contents are hidden from cleanup scans and cannot be deleted by \(MCConstants.appName) (including Shredder). Only paths under your home folder or /Volumes.")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -431,7 +431,7 @@ struct SettingsPageView: View {
     }
 
     private var aboutSection: some View {
-        Section(String(localized: "About")) {
+        Section("About") {
             aboutRow(icon: "chevron.left.forwardslash.chevron.right", tint: .orange,
                      title: String(localized: "Source code"), caption: String(localized: "Browse the codebase on GitHub"),
                      url: MCConstants.repoURL)
@@ -453,10 +453,12 @@ struct SettingsPageView: View {
         } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(tint.opacity(0.18)).frame(width: 32, height: 32)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(tint)
+                        .frame(width: 28, height: 28)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(tint)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)

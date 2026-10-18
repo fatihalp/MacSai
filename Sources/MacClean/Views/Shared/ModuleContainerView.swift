@@ -217,17 +217,26 @@ struct ModuleContainerView: View {
     }
 
     private var idleView: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 24) {
             Spacer()
-            VStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(theme.accentColor)
+                .frame(width: 60, height: 60)
+                .overlay(
+                    Image(systemName: theme.icon)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+
+            VStack(spacing: 8) {
                 Text(title)
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.primary)
                 Text(subtitle)
                     .font(.system(size: 13.5))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 400)
+                    .frame(maxWidth: 420)
             }
             ScanButton(title: "Scan", subtitle: title, theme: theme, action: onScan)
             Spacer()

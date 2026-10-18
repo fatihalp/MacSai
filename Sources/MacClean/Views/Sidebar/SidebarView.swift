@@ -28,7 +28,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
     case settings = "Settings"
 
     public var id: String { rawValue }
-    public var title: String { String(localized: rawValue) }
+    public var title: String { rawValue }
 
     public var deepLinkID: String {
         switch self {
@@ -65,29 +65,74 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
 
     public var icon: String {
         switch self {
-        case .smartScan: "sparkle.magnifyingglass"
-        case .systemJunk: "trash"
+        case .smartScan: "sparkles"
+        case .systemJunk: "trash.fill"
         case .mailAttachments: "paperclip"
-        case .trashBins: "trash.slash"
-        case .malwareRemoval: "shield"
-        case .privacy: "hand.raised"
+        case .trashBins: "trash.slash.fill"
+        case .malwareRemoval: "shield.fill"
+        case .privacy: "hand.raised.fill"
         case .wifiNetworks: "wifi"
-        case .appPermissions: "lock.shield"
+        case .appPermissions: "lock.shield.fill"
         case .optimization: "gauge.with.dots.needle.67percent"
-        case .maintenance: "wrench.and.screwdriver"
-        case .uninstaller: "Trash" == "" ? "xmark.app" : "xmark.app"
-        case .extensions: "puzzlepiece.extension"
+        case .maintenance: "wrench.and.screwdriver.fill"
+        case .uninstaller: "xmark.app.fill"
+        case .extensions: "puzzlepiece.extension.fill"
         case .updater: "arrow.triangle.2.circlepath"
-        case .spaceLens: "chart.pie"
-        case .largeOldFiles: "doc.richtext"
-        case .duplicates: "doc.on.doc"
+        case .spaceLens: "chart.pie.fill"
+        case .largeOldFiles: "doc.fill"
+        case .duplicates: "doc.on.doc.fill"
         case .shredder: "scissors"
-        case .browserExtensions: "puzzlepiece"
-        case .diskHogs: "externaldrive"
-        case .projectJunk: "shippingbox"
+        case .browserExtensions: "puzzlepiece.fill"
+        case .diskHogs: "externaldrive.fill"
+        case .projectJunk: "shippingbox.fill"
         case .cleanHistory: "clock.arrow.circlepath"
-        case .unusedApps: "app.badge"
-        case .settings: "gearshape"
+        case .unusedApps: "clock.badge.xmark.fill"
+        case .settings: "gearshape.fill"
+        }
+    }
+
+    public var iconColor: Color {
+        switch self {
+        case .smartScan:
+            Color(nsColor: .systemIndigo)
+        case .systemJunk, .mailAttachments:
+            Color(nsColor: .systemBlue)
+        case .trashBins:
+            Color(nsColor: .systemGray)
+        case .malwareRemoval:
+            Color(nsColor: .systemGreen)
+        case .privacy, .wifiNetworks, .appPermissions:
+            Color(nsColor: .systemBlue)
+        case .optimization:
+            Color(nsColor: .systemOrange)
+        case .maintenance:
+            Color(nsColor: .systemGray)
+        case .uninstaller:
+            Color(nsColor: .systemRed)
+        case .unusedApps:
+            Color(nsColor: .systemOrange)
+        case .extensions:
+            Color(nsColor: .systemPurple)
+        case .updater:
+            Color(nsColor: .systemBlue)
+        case .spaceLens:
+            Color(nsColor: .systemTeal)
+        case .largeOldFiles:
+            Color(nsColor: .systemOrange)
+        case .duplicates:
+            Color(nsColor: .systemBlue)
+        case .shredder:
+            Color(nsColor: .systemRed)
+        case .browserExtensions:
+            Color(nsColor: .systemIndigo)
+        case .diskHogs:
+            Color(nsColor: .systemPurple)
+        case .projectJunk:
+            Color(nsColor: .systemBrown)
+        case .cleanHistory:
+            Color(nsColor: .systemGray)
+        case .settings:
+            Color(nsColor: .systemGray)
         }
     }
 
@@ -135,7 +180,7 @@ public enum SidebarSection: String, CaseIterable, Identifiable {
     case files = "Files"
 
     public var id: String { rawValue }
-    public var title: String { rawValue.isEmpty ? "" : String(localized: rawValue) }
+    public var title: String { rawValue }
 
     public var items: [SidebarItem] {
         SidebarItem.allCases.filter { $0.section == self && $0 != .settings }
@@ -144,28 +189,38 @@ public enum SidebarSection: String, CaseIterable, Identifiable {
 
 public struct SidebarView: View {
     @Binding var selection: SidebarItem?
+    @State private var searchText: String = ""
 
     public init(selection: Binding<SidebarItem?>) {
         self._selection = selection
     }
 
     public var body: some View {
-        List(selection: $selection) {
-            ForEach(SidebarSection.allCases) { section in
-                if section == .main {
-                    ForEach(section.items) { item in
-                        sidebarRow(item)
+        VStack(spacing: 0) {
+            searchBar
+
+            List(selection: $selection) {
+                ForEach(SidebarSection.allCases) { section in
+                    let matchingItems = section.items.filter { item in
+                        searchText.isEmpty || item.title.localizedCaseInsensitiveContains(searchText)
                     }
-                } else {
-                    Section(section.title) {
-                        ForEach(section.items) { item in
-                            sidebarRow(item)
+                    if !matchingItems.isEmpty {
+                        if section == .main {
+                            ForEach(matchingItems) { item in
+                                sidebarRow(item)
+                            }
+                        } else {
+                            Section(section.title) {
+                                ForEach(matchingItems) { item in
+                                    sidebarRow(item)
+                                }
+                            }
                         }
                     }
                 }
             }
+            .listStyle(.sidebar)
         }
-        .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
@@ -179,14 +234,52 @@ public struct SidebarView: View {
         )
     }
 
+    private var searchBar: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.4), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
     private var settingsFooter: some View {
         Button {
             selection = .settings
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 13))
-                    .foregroundStyle(selection == .settings ? Color(nsColor: .systemBlue) : Color.secondary)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(SidebarItem.settings.iconColor)
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 20, height: 20)
+
                 Text("Settings")
                     .font(.system(size: 13, weight: selection == .settings ? .medium : .regular))
                 Spacer()
@@ -201,7 +294,7 @@ public struct SidebarView: View {
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(selection == .settings ? Color(nsColor: .systemBlue).opacity(0.12) : Color.clear)
+                .fill(selection == .settings ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
         )
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -213,9 +306,14 @@ public struct SidebarView: View {
             Text(item.title)
                 .font(.system(size: 13))
         } icon: {
-            Image(systemName: item.icon)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(nsColor: .systemBlue))
+            ZStack {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(item.iconColor)
+                Image(systemName: item.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 20, height: 20)
         }
         .tag(item)
     }

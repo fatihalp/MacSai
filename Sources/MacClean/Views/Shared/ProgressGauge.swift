@@ -104,7 +104,7 @@ public struct ScanProgressRing: View {
         VStack(spacing: 16) {
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
-                .tint(Color(nsColor: .systemBlue))
+                .tint(theme.accentColor)
                 .frame(width: 260)
 
             VStack(spacing: 4) {

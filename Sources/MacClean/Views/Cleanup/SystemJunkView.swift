@@ -59,13 +59,13 @@ struct SystemJunkView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(ModuleTheme.cleanup.accentColor.opacity(0.12))
-                .frame(width: 64, height: 64)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(ModuleTheme.cleanup.accentColor)
+                .frame(width: 60, height: 60)
                 .overlay(
-                    Image(systemName: "trash.circle.fill")
+                    Image(systemName: "trash.fill")
                         .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(ModuleTheme.cleanup.accentColor)
+                        .foregroundStyle(.white)
                 )
 
             VStack(spacing: 8) {
@@ -80,8 +80,8 @@ struct SystemJunkView: View {
             }
 
             ScanButton(
-                title: String(localized: "Scan"),
-                subtitle: String(localized: "System Junk"),
+                title: "Scan",
+                subtitle: "System Junk",
                 theme: .cleanup
             ) {
                 viewModel.startScan()

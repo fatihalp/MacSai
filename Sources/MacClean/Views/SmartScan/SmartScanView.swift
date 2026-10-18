@@ -87,38 +87,7 @@ struct SmartScanView: View {
     }
 
     private var idleView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(ModuleTheme.smartScan.accentColor.opacity(0.12))
-                .frame(width: 64, height: 64)
-                .overlay(
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(ModuleTheme.smartScan.accentColor)
-                )
-
-            VStack(spacing: 8) {
-                Text("Smart Scan")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.primary)
-                Text("Scan your Mac for junk files, malware threats,\nand performance issues")
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            ScanButton(
-                title: String(localized: "Scan"),
-                subtitle: String(localized: "One-click cleanup"),
-                theme: .smartScan,
-                action: startScan
-            )
-
-            Spacer()
-        }
-        .padding(.horizontal, 40)
+        HomeDashboardView(onStartScan: startScan)
     }
 
     private func scanningView(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64) -> some View {
