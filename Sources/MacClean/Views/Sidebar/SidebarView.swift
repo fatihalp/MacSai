@@ -160,6 +160,113 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
+    public var subtitle: String {
+        switch self {
+        case .smartScan:
+            "One-click comprehensive analysis of junk, malware, and performance."
+        case .systemJunk:
+            "Clean caches, logs, Xcode remnants, and localization files."
+        case .mailAttachments:
+            "Remove local copies of email downloads and cached attachments."
+        case .trashBins:
+            "Safely empty startup disk Trash and external drive bins."
+        case .diskHogs:
+            "Discover hidden oversized folders and files taking up space."
+        case .projectJunk:
+            "Clean developer build artifacts from Xcode, SPM, and node_modules."
+        case .cleanHistory:
+            "Review audit log of past cleanup sessions and freed gigabytes."
+        case .malwareRemoval:
+            "Scan memory, launch agents, and applications for security threats."
+        case .privacy:
+            "Clean browser histories, cookies, autofill, and tracking traces."
+        case .wifiNetworks:
+            "Audit saved Wi-Fi networks and remove unsecured hotspots."
+        case .appPermissions:
+            "Review sensitive camera, microphone, and disk permissions."
+        case .browserExtensions:
+            "Manage extensions and helper plugins across your browsers."
+        case .optimization:
+            "Manage login items, background launch daemons, and RAM hogs."
+        case .maintenance:
+            "Flush DNS cache, reindex Spotlight, and run repair scripts."
+        case .uninstaller:
+            "Completely remove apps with their leftover files and caches."
+        case .unusedApps:
+            "Detect applications not opened in over 6 months to free space."
+        case .extensions:
+            "Inspect preference panes, QuickLook plugins, and system extensions."
+        case .updater:
+            "Check for pending updates to keep software modern and secure."
+        case .spaceLens:
+            "Visual storage map of files and folders by size proportion."
+        case .largeOldFiles:
+            "Locate massive files and archives forgotten over time."
+        case .duplicates:
+            "Scan folders for identical duplicate files and consolidate."
+        case .shredder:
+            "Permanently destroy sensitive files with secure multi-pass wiping."
+        case .settings:
+            "Configure automatic updates, folder exclusions, and widgets."
+        }
+    }
+
+    public var badgeText: String {
+        switch self {
+        case .smartScan: "One-Click"
+        case .systemJunk: "Storage"
+        case .mailAttachments: "Mail"
+        case .trashBins: "Trash"
+        case .diskHogs: "Heavy Folders"
+        case .projectJunk: "Developer"
+        case .cleanHistory: "Audit Log"
+        case .malwareRemoval: "Security"
+        case .privacy: "Privacy"
+        case .wifiNetworks: "Network"
+        case .appPermissions: "Permissions"
+        case .browserExtensions: "Extensions"
+        case .optimization: "System Speed"
+        case .maintenance: "Maintenance"
+        case .uninstaller: "Apps"
+        case .unusedApps: "Storage"
+        case .extensions: "Extensions"
+        case .updater: "Updates"
+        case .spaceLens: "Storage Map"
+        case .largeOldFiles: "Archives"
+        case .duplicates: "Deduplication"
+        case .shredder: "Security Wipe"
+        case .settings: "Preferences"
+        }
+    }
+
+    public var actionTitle: String {
+        switch self {
+        case .smartScan: "Start Scan"
+        case .systemJunk: "Scan Junk"
+        case .mailAttachments: "Clean Mail"
+        case .trashBins: "Empty Trash"
+        case .diskHogs: "Find Hogs"
+        case .projectJunk: "Clean Builds"
+        case .cleanHistory: "View History"
+        case .malwareRemoval: "Scan Malware"
+        case .privacy: "Review Privacy"
+        case .wifiNetworks: "Inspect Networks"
+        case .appPermissions: "Review Permissions"
+        case .browserExtensions: "Manage Extensions"
+        case .optimization: "Optimize"
+        case .maintenance: "Run Tasks"
+        case .uninstaller: "Open Uninstaller"
+        case .unusedApps: "Scan Unused"
+        case .extensions: "Manage Extensions"
+        case .updater: "Check Updates"
+        case .spaceLens: "Analyze Storage"
+        case .largeOldFiles: "Find Large Files"
+        case .duplicates: "Find Duplicates"
+        case .shredder: "Shred Files"
+        case .settings: "Open Settings"
+        }
+    }
+
     public static var keyboardShortcutItems: [SidebarItem] {
         Array(allCases.filter { $0 != .settings }.prefix(9))
     }
@@ -214,6 +321,75 @@ public enum SidebarCategory: String, CaseIterable, Identifiable {
         }
     }
 
+    public var subtitle: String {
+        switch self {
+        case .smartScan:
+            "Clean, protect, and optimize your Mac in one click."
+        case .cleanup:
+            "Reclaim storage by removing system junk, caches, mail attachments, and trash."
+        case .protection:
+            "Safeguard your Mac against malware, unauthorized permissions, and privacy risks."
+        case .performance:
+            "Optimize background processes, startup items, and run vital maintenance routines."
+        case .applications:
+            "Completely remove apps with their leftovers, check for updates, and detect unused software."
+        case .files:
+            "Analyze disk distribution, discover large old files, find duplicates, and shred data."
+        case .settings:
+            "Preferences, exclusions, and app configuration."
+        }
+    }
+
+    public var heroSubItem: SidebarItem {
+        switch self {
+        case .smartScan: .smartScan
+        case .cleanup: .systemJunk
+        case .protection: .malwareRemoval
+        case .performance: .maintenance
+        case .applications: .uninstaller
+        case .files: .spaceLens
+        case .settings: .settings
+        }
+    }
+
+    public var heroTitle: String {
+        switch self {
+        case .smartScan:
+            "Smart Scan Overview"
+        case .cleanup:
+            "System Junk & Caches"
+        case .protection:
+            "Malware & Threat Defense"
+        case .performance:
+            "Recommended Maintenance Tasks"
+        case .applications:
+            "Complete Application Removal"
+        case .files:
+            "Visual Storage Map"
+        case .settings:
+            "Settings & Preferences"
+        }
+    }
+
+    public var heroDescription: String {
+        switch self {
+        case .smartScan:
+            "Comprehensive analysis of junk files, malware threats, and system performance."
+        case .cleanup:
+            "Clean caches, logs, and localization files safely to free up gigabytes of disk space."
+        case .protection:
+            "Scan running memory, launch agents, and app bundles for security threats and malicious software."
+        case .performance:
+            "Run curated macOS maintenance routines: flush DNS cache, reindex Spotlight, and repair permissions."
+        case .applications:
+            "Uninstall unwanted software and eliminate all leftover container files, preferences, and caches."
+        case .files:
+            "Interactive proportional map of your drive to pinpoint heavy folders and forgotten large files."
+        case .settings:
+            "Configure automatic updates, folder exclusions, and widgets."
+        }
+    }
+
     public var subItems: [SidebarItem] {
         switch self {
         case .smartScan:
@@ -225,7 +401,7 @@ public enum SidebarCategory: String, CaseIterable, Identifiable {
         case .performance:
             [.optimization, .maintenance]
         case .applications:
-            [.uninstaller, .unusedApps, .extensions, .updater]
+            [.uninstaller, .updater, .unusedApps, .extensions]
         case .files:
             [.spaceLens, .largeOldFiles, .duplicates, .shredder]
         case .settings:
@@ -236,11 +412,17 @@ public enum SidebarCategory: String, CaseIterable, Identifiable {
 
 public struct SidebarView: View {
     @Binding var selection: SidebarCategory
+    var onSelectCategory: ((SidebarCategory) -> Void)? = nil
     var onSelectSubItem: ((SidebarItem) -> Void)? = nil
     @State private var searchText: String = ""
 
-    public init(selection: Binding<SidebarCategory>, onSelectSubItem: ((SidebarItem) -> Void)? = nil) {
+    public init(
+        selection: Binding<SidebarCategory>,
+        onSelectCategory: ((SidebarCategory) -> Void)? = nil,
+        onSelectSubItem: ((SidebarItem) -> Void)? = nil
+    ) {
         self._selection = selection
+        self.onSelectCategory = onSelectCategory
         self.onSelectSubItem = onSelectSubItem
     }
 
@@ -351,6 +533,7 @@ public struct SidebarView: View {
     private var settingsFooter: some View {
         Button {
             selection = .settings
+            onSelectCategory?(.settings)
         } label: {
             HStack(spacing: 8) {
                 ZStack {
@@ -398,5 +581,9 @@ public struct SidebarView: View {
             .frame(width: 20, height: 20)
         }
         .tag(category)
+        .simultaneousGesture(TapGesture().onEnded {
+            selection = category
+            onSelectCategory?(category)
+        })
     }
 }

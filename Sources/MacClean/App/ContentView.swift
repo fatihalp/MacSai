@@ -19,59 +19,108 @@ struct ContentView: View {
                     get: { state.selectedCategory },
                     set: { state.selectCategory($0) }
                 ),
+                onSelectCategory: { category in
+                    state.selectCategory(category)
+                },
                 onSelectSubItem: { item in
                     state.selectItem(item)
                 }
             )
             .toolbar(removing: .sidebarToggle)
         } detail: {
-            VStack(spacing: 0) {
-                if state.selectedCategory.subItems.count > 1 {
-                    HStack {
-                        Picker("", selection: Binding(
-                            get: { state.selectedSidebarItem ?? state.selectedCategory.subItems[0] },
-                            set: { state.selectItem($0) }
-                        )) {
-                            ForEach(state.selectedCategory.subItems) { item in
-                                Text(item.title).tag(item)
+            if state.selectedCategory == .smartScan {
+                SmartScanView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
+            } else if state.selectedCategory == .settings {
+                SettingsPageView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
+            } else if let activeItem = appState.selectedSidebarItem {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Button {
+                            appState.selectCategory(state.selectedCategory)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(state.selectedCategory.title)
+                                    .font(.system(size: 12.5, weight: .medium))
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color(nsColor: .systemBlue))
+
+                        Text("/")
+                            .foregroundStyle(.tertiary)
+                            .font(.system(size: 11))
+
+                        Text(activeItem.title)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Menu {
+                            ForEach(state.selectedCategory.subItems) { item in
+                                Button {
+                                    appState.selectItem(item)
+                                } label: {
+                                    Label(item.title, systemImage: item.icon)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Switch")
+                                    .font(.system(size: 11.5))
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(nsColor: .controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 14)
-                    .padding(.bottom, 10)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
 
                     Divider()
-                }
 
-                ZStack {
-                    Color.white
-                        .ignoresSafeArea()
+                    ZStack {
+                        Color.white
+                            .ignoresSafeArea()
 
-                    ForEach(SidebarItem.allCases, id: \.self) { item in
-                        if visited.contains(item) || item == appState.selectedSidebarItem {
-                            let isSelected = item == appState.selectedSidebarItem
-                            moduleView(for: item)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .opacity(isSelected ? 1 : 0)
-                                .allowsHitTesting(isSelected)
-                                .accessibilityHidden(!isSelected)
-                                .environment(\.moduleIsSelected, isSelected)
+                        ForEach(SidebarItem.allCases, id: \.self) { item in
+                            if visited.contains(item) || item == activeItem {
+                                let isSelected = item == activeItem
+                                moduleView(for: item)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .opacity(isSelected ? 1 : 0)
+                                    .allowsHitTesting(isSelected)
+                                    .accessibilityHidden(!isSelected)
+                                    .environment(\.moduleIsSelected, isSelected)
+                            }
                         }
                     }
-
-                    if appState.selectedSidebarItem == nil {
-                        Text("Select a module from the sidebar")
-                            .foregroundStyle(.secondary)
-                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.white)
+            } else {
+                CategoryHubView(category: state.selectedCategory)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
             }
         }
-        .navigationTitle(state.selectedCategory == .smartScan ? MCConstants.appName : state.selectedCategory.title)
+        .navigationTitle(
+            state.selectedCategory == .smartScan ? MCConstants.appName :
+            (appState.selectedSidebarItem?.title ?? state.selectedCategory.title)
+        )
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 ControlGroup {

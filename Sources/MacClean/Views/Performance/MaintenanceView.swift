@@ -18,12 +18,12 @@ struct MaintenanceView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Maintenance")
-                        .font(.system(size: 22, weight: .bold))
+                    Text("Maintenance Tasks")
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text("Run system maintenance tasks to keep your Mac healthy")
+                    Text("Your macOS does a pretty good job of self-care, but there's always room for more. Run recommended maintenance tasks to bring your Mac to its max.")
                         .font(.system(size: 12))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
 
@@ -36,7 +36,7 @@ struct MaintenanceView: View {
             .padding(.vertical, 16)
 
             ScrollView {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: 8) {
                     ForEach(MaintenanceTask.allCases) { task in
                         taskRow(task)
                     }
@@ -67,11 +67,15 @@ struct MaintenanceView: View {
     }
 
     private func taskRow(_ task: MaintenanceTask) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: task.icon)
-                .font(.system(size: 16))
-                .foregroundStyle(.primary.opacity(0.75))
-                .frame(width: 26)
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(task.severity == .advanced ? Color.orange.opacity(0.15) : Color(nsColor: .systemOrange).opacity(0.12))
+                    .frame(width: 34, height: 34)
+                Image(systemName: task.icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(task.severity == .advanced ? Color.orange : Color(nsColor: .systemOrange))
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -84,19 +88,19 @@ struct MaintenanceView: View {
                             .foregroundStyle(.orange)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
-                            .background(.orange.opacity(0.15))
+                            .background(Color.orange.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 3))
                     }
                 }
                 if case .failed(let message) = taskStates[task] {
                     Text(message)
                         .font(.system(size: 11))
-                        .foregroundStyle(.orange.opacity(0.8))
+                        .foregroundStyle(Color.orange.opacity(0.8))
                         .lineLimit(2)
                 } else {
                     Text(task.description)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.primary.opacity(0.45))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
@@ -114,7 +118,7 @@ struct MaintenanceView: View {
                     .font(.system(size: 20))
                     .foregroundStyle(task.severity == .advanced
                                      ? Color.orange.opacity(0.85)
-                                     : Color.primary.opacity(0.6))
+                                     : Color(nsColor: .systemBlue))
             }
             .buttonStyle(.plain)
             .disabled(isRunning(task))
@@ -124,8 +128,12 @@ struct MaintenanceView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.primary.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+        )
     }
 
     @ViewBuilder

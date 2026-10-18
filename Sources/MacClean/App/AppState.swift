@@ -20,10 +20,13 @@ public final class AppState {
 
     func selectCategory(_ category: SidebarCategory) {
         selectedCategory = category
-        if let current = selectedSidebarItem, current.category == category {
-            return
+        if category == .smartScan {
+            selectedSidebarItem = .smartScan
+        } else if category == .settings {
+            selectedSidebarItem = .settings
+        } else {
+            selectedSidebarItem = nil
         }
-        selectedSidebarItem = category.subItems.first
     }
 
     func selectItem(_ item: SidebarItem) {
