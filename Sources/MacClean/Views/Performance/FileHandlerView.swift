@@ -12,7 +12,7 @@ struct FileHandlerView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
                     .font(.system(size: 12))
-                TextField(String(localized: "Search file type or app..."),
+                TextField("Search file type or app...",
                           text: $viewModel.searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
@@ -33,13 +33,13 @@ struct FileHandlerView: View {
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.borderless)
-                .help(String(localized: "Version history"))
+                .help("Version history")
                 Button(action: { viewModel.loadHandlers() }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.borderless)
-                .help(String(localized: "Refresh"))
+                .help("Refresh")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -249,7 +249,7 @@ private struct HandlerRowView: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.borderless)
-            .help(String(localized: "Remove (auto-backup created)"))
+            .help("Remove (auto-backup created)")
         }
         .padding(.vertical, 2)
     }

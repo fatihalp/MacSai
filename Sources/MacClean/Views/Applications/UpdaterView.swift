@@ -76,7 +76,7 @@ struct UpdaterView: View {
                                     .controlSize(.small)
                                     .frame(width: 60)
                             } else {
-                                Button(String(localized: "Update")) { startUpdate(update) }
+                                Button("Update") { startUpdate(update) }
                                     .buttonStyle(.bordered)
                                     .controlSize(.small)
                             }

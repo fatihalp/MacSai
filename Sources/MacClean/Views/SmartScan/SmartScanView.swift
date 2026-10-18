@@ -166,7 +166,7 @@ struct SmartScanView: View {
             )
             .padding(.horizontal, 20)
 
-            Button(String(localized: "Cancel")) { cancelScan() }
+            Button("Cancel") { cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -268,8 +268,8 @@ struct SmartScanView: View {
             }
         }
         .alert("Clean \(selectedCount) item\(selectedCount == 1 ? "" : "s")?", isPresented: $showCleanConfirm) {
-            Button(String(localized: "Cancel"), role: .cancel) { }
-            Button(String(localized: "Clean"), role: .destructive) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clean", role: .destructive) {
                 showingReview = false
                 runCleanup()
             }
@@ -300,19 +300,19 @@ struct SmartScanView: View {
 
             if let review {
                 HStack(spacing: 8) {
-                    Button(String(localized: "Select All")) {
+                    Button("Select All") {
                         review.applyToAll(.all)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
 
-                    Button(String(localized: "Smart")) {
+                    Button("Smart") {
                         review.applyToAll(.smart)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
 
-                    Button(String(localized: "Deselect All")) {
+                    Button("Deselect All") {
                         review.applyToAll(.none)
                     }
                     .buttonStyle(.bordered)
@@ -345,7 +345,7 @@ struct SmartScanView: View {
                     reviewSectionID = nil
                     showingReview = true
                 } label: {
-                    Label(String(localized: "Review Details"), systemImage: "list.bullet.rectangle")
+                    Label("Review Details", systemImage: "list.bullet.rectangle")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
@@ -414,7 +414,7 @@ struct SmartScanView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
         )
-        .help(String(localized: "Review Details"))
+        .help("Review Details")
     }
 
     private var emptyView: some View {
@@ -429,7 +429,7 @@ struct SmartScanView: View {
             Text("No junk, threats, or performance issues found")
                 .font(.system(size: 14))
                 .foregroundStyle(.primary.opacity(0.6))
-            Button(String(localized: "Done")) { resetScan() }
+            Button("Done") { resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -442,7 +442,7 @@ struct SmartScanView: View {
             Spacer()
             ScanProgressRing(progress: progress, phase: String(localized: "Cleaning your Mac..."), theme: .smartScan)
 
-            Button(String(localized: "Cancel")) { cleanTask?.cancel() }
+            Button("Cancel") { cleanTask?.cancel() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -501,7 +501,7 @@ struct SmartScanView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
             if askForSupport { SupportCard() }
-            Button(String(localized: "Done")) { resetScan() }
+            Button("Done") { resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)

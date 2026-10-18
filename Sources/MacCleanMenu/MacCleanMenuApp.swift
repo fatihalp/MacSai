@@ -247,7 +247,7 @@ struct MenuContentView: View {
                             Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
                                 .foregroundStyle(MenuPalette.textSecondary).padding(4)
                                 .background(Color.white.opacity(0.08), in: Circle())
-                        }.buttonStyle(.plain).help(String(localized: "Dismiss for 30 days"))
+                        }.buttonStyle(.plain).help("Dismiss for 30 days")
                     }
                     Button { TipAction.open(moduleID: MenuTipRouting.moduleID(forTipID: tip.id)) } label: {
                         Text(tipCTA(tip)).font(.system(size: 11, weight: .bold)).foregroundStyle(Color(red:0.16,green:0.10,blue:0.30))
@@ -319,7 +319,7 @@ struct MenuContentView: View {
                 Image(systemName: "power").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 34, height: 32)
                     .background(MenuPalette.red, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            }.buttonStyle(.plain).help(String(localized: "Quit Monitor"))
+            }.buttonStyle(.plain).help("Quit Monitor")
 
             Button { TipAction.open() } label: {
                 HStack(spacing: 6) {

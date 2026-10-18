@@ -23,13 +23,13 @@ struct CleanHistoryView: View {
                 Button {
                     confirmClear = true
                 } label: {
-                    Label(String(localized: "Clear History"), systemImage: "trash.slash")
+                    Label("Clear History", systemImage: "trash.slash")
                 }
                 .disabled(sessions.isEmpty || isRestoring)
                 Button {
                     sessions = CleanHistoryRecorder.load()
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
             }
             .padding(.horizontal, 24)
@@ -54,14 +54,14 @@ struct CleanHistoryView: View {
                                     .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
                                 if session.isPartial {
-                                    Label(String(localized: "Partly restorable"),
+                                    Label("Partly restorable",
                                           systemImage: "exclamationmark.triangle")
                                         .font(.system(size: 11))
                                         .foregroundStyle(.orange)
                                 }
                             }
                             Spacer()
-                            Button(String(localized: "Restore")) {
+                            Button("Restore") {
                                 pendingRestore = session
                             }
                             .buttonStyle(.borderedProminent)
@@ -89,8 +89,8 @@ struct CleanHistoryView: View {
             ),
             presenting: pendingRestore
         ) { session in
-            Button(String(localized: "Cancel"), role: .cancel) { pendingRestore = nil }
-            Button(String(localized: "Restore")) {
+            Button("Cancel", role: .cancel) { pendingRestore = nil }
+            Button("Restore") {
                 let target = session
                 pendingRestore = nil
                 isRestoring = true
@@ -113,7 +113,7 @@ struct CleanHistoryView: View {
                 set: { if !$0 { lastSummary = nil } }
             )
         ) {
-            Button(String(localized: "OK"), role: .cancel) { lastSummary = nil }
+            Button("OK", role: .cancel) { lastSummary = nil }
         } message: {
             if let lastSummary {
                 Text(Self.summaryMessage(lastSummary))
@@ -123,8 +123,8 @@ struct CleanHistoryView: View {
             String(localized: "Clear clean history?"),
             isPresented: $confirmClear
         ) {
-            Button(String(localized: "Cancel"), role: .cancel) {}
-            Button(String(localized: "Clear"), role: .destructive) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
                 CleanHistoryRecorder.clear()
                 sessions = []
             }

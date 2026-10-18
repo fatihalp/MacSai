@@ -29,14 +29,14 @@ struct OptimizationView: View {
                 Button {
                     refresh()
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .help(String(localized: "Rescan startup items"))
+                .help("Rescan startup items")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
-            Picker(String(localized: "Section"), selection: $selectedTab) {
+            Picker("Section", selection: $selectedTab) {
                 Text("Resource Hogs").tag(0)
                 Text("Login Items").tag(1)
                 Text("Launch Agents").tag(2)
@@ -205,7 +205,7 @@ private struct ItemRow: View {
                         .font(.system(size: 11))
                 }
                 .buttonStyle(.bordered)
-                .help(String(localized: "Show config in Finder"))
+                .help("Show config in Finder")
             }
         }
         .frame(maxWidth: .infinity)

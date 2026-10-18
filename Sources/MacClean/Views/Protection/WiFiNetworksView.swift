@@ -26,12 +26,12 @@ struct WiFiNetworksView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isForgetting)
-                .help(String(localized: "Reload saved networks"))
+                .help("Reload saved networks")
 
-                Button(String(localized: "Forget Selected")) {
+                Button("Forget Selected") {
                     pendingForget = selectedNetworks
                 }
                 .buttonStyle(.borderedProminent)
@@ -121,8 +121,8 @@ struct WiFiNetworksView: View {
             ),
             presenting: pendingForget
         ) { nets in
-            Button(String(localized: "Cancel"), role: .cancel) { pendingForget = nil }
-            Button(String(localized: "Forget"), role: .destructive) {
+            Button("Cancel", role: .cancel) { pendingForget = nil }
+            Button("Forget", role: .destructive) {
                 let captured = nets
                 pendingForget = nil
                 Task { await forget(captured) }
@@ -133,7 +133,7 @@ struct WiFiNetworksView: View {
         .alert(String(localized: "Saved Wi-Fi"),
                isPresented: Binding(get: { errorMessage != nil && !networks.isEmpty },
                                     set: { if !$0 { errorMessage = nil } })) {
-            Button(String(localized: "OK"), role: .cancel) { errorMessage = nil }
+            Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }

@@ -18,7 +18,7 @@ struct ResourceHogsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker(String(localized: "Sort"), selection: $sortBy) {
+                Picker("Sort", selection: $sortBy) {
                     Text("CPU").tag(ResourceHogsPolicy.SortKey.cpu)
                     Text("Memory").tag(ResourceHogsPolicy.SortKey.memory)
                 }
@@ -90,10 +90,10 @@ struct ResourceHogsView: View {
             "Force Quit \(pendingQuit?.snapshot.name ?? "")?",
             isPresented: $showQuitConfirm
         ) {
-            Button(String(localized: "Cancel"), role: .cancel) {
+            Button("Cancel", role: .cancel) {
                 pendingQuit = nil
             }
-            Button(String(localized: "Force Quit"), role: .destructive) {
+            Button("Force Quit", role: .destructive) {
                 quitPending()
             }
         } message: {
@@ -171,7 +171,7 @@ private struct ResourceHogRowView: View {
             .frame(minWidth: 72, alignment: .trailing)
 
             if row.canQuit {
-                Button(String(localized: "Quit"), action: onQuit)
+                Button("Quit", action: onQuit)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .tint(.red)
@@ -180,7 +180,7 @@ private struct ResourceHogRowView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                     .frame(width: 52)
-                    .help(String(localized: "Protected — cannot quit"))
+                    .help("Protected — cannot quit")
             }
         }
         .padding(.vertical, 2)

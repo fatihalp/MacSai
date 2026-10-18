@@ -132,8 +132,8 @@ struct DuplicatesView: View {
             String(localized: "Consolidate selected copies?"),
             isPresented: $consolidateConfirm, titleVisibility: .visible
         ) {
-            Button(String(localized: "Consolidate")) { consolidate() }
-            Button(String(localized: "Cancel"), role: .cancel) {}
+            Button("Consolidate") { consolidate() }
+            Button("Cancel", role: .cancel) {}
         } message: {
 
             Text("Keeps every copy, frees about \(FileSizeFormatter.format(consolidateEstimate))")
@@ -200,7 +200,7 @@ struct DuplicatesView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            Button(String(localized: "Cancel")) { cancelScan() }
+            Button("Cancel") { cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)

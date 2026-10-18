@@ -126,8 +126,8 @@ struct SystemJunkView: View {
                 "Clean \(viewModel.selectedCount.formatted()) items?",
                 isPresented: $showLargeSelectionConfirm
             ) {
-                Button(String(localized: "Cancel"), role: .cancel) { }
-                Button(String(localized: "Continue"), role: .destructive) {
+                Button("Cancel", role: .cancel) { }
+                Button("Continue", role: .destructive) {
                     viewModel.startCleaning(engine: appState.cleaningEngine)
                 }
             } message: {
@@ -148,7 +148,7 @@ struct SystemJunkView: View {
             Text("Your Mac is clean!")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.55))
-            Button(String(localized: "Done")) { viewModel.reset() }
+            Button("Done") { viewModel.reset() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -172,7 +172,7 @@ struct SystemJunkView: View {
                     .foregroundStyle(.primary.opacity(0.65))
             }
 
-            Button(String(localized: "Cancel")) { viewModel.cancelCleaning() }
+            Button("Cancel") { viewModel.cancelCleaning() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -286,14 +286,14 @@ struct SystemJunkView: View {
                     Button {
                         showActivityLog = true
                     } label: {
-                        Label(String(localized: "View Log"), systemImage: "doc.text.magnifyingglass")
+                        Label("View Log", systemImage: "doc.text.magnifyingglass")
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
-                    .help(String(localized: "Open the activity log to see every error and copy details for a bug report"))
+                    .help("Open the activity log to see every error and copy details for a bug report")
                 }
-                Button(String(localized: "Done")) { viewModel.reset() }
+                Button("Done") { viewModel.reset() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)

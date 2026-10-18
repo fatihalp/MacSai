@@ -47,18 +47,18 @@ struct MacCleanApp: App {
         .defaultSize(width: 1000, height: 650)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button(String(localized: "Settings…")) {
+                Button("Settings…") {
                     appState.selectedSidebarItem = .settings
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .sidebar) {
-                Button(String(localized: "Scan")) {
+                Button("Scan") {
                     appState.requestScanShortcut()
                 }
                 .keyboardShortcut("r", modifiers: .command)
 
-                Button(String(localized: "Clean Selected")) {
+                Button("Clean Selected") {
                     appState.requestCleanShortcut()
                 }
                 .keyboardShortcut("k", modifiers: .command)

@@ -79,7 +79,7 @@ struct SettingsPageView: View {
             if case .available(let version, let url) = updateState {
                 updateAvailableRow(version: version, url: url)
             }
-            Toggle(String(localized: "Automatically check for updates"),
+            Toggle("Automatically check for updates",
                    isOn: $automaticUpdateChecks)
             if lastUpdateCheckTimestamp > 0 {
                 Text("Last checked: \(lastCheckedDescription)")
@@ -98,7 +98,7 @@ struct SettingsPageView: View {
     private var updateControl: some View {
         switch updateState {
         case .idle:
-            Button(String(localized: "Check for Updates")) { startUpdateCheck() }
+            Button("Check for Updates") { startUpdateCheck() }
         case .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -115,7 +115,7 @@ struct SettingsPageView: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Button(String(localized: "Retry")) { startUpdateCheck() }
+                Button("Retry") { startUpdateCheck() }
             }
         }
     }
@@ -135,14 +135,14 @@ struct SettingsPageView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(Self.brewUpgradeCommand, forType: .string)
                 } label: {
-                    Label(String(localized: "Copy"), systemImage: "doc.on.doc")
+                    Label("Copy", systemImage: "doc.on.doc")
                 }
             }
         } else {
             HStack {
                 Text("Version \(version) is available.")
                 Spacer()
-                Button(String(localized: "View Release")) { NSWorkspace.shared.open(url) }
+                Button("View Release") { NSWorkspace.shared.open(url) }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -192,14 +192,14 @@ struct SettingsPageView: View {
                 if loginLauncher.isBusy {
                     ProgressView().controlSize(.small)
                 }
-                Toggle(String(localized: "Launch at login"), isOn: launchAtLoginBinding)
+                Toggle("Launch at login", isOn: launchAtLoginBinding)
                     .toggleStyle(.switch)
                     .labelsHidden()
                     .disabled(loginLauncher.isBusy)
             }
             .animation(.easeInOut(duration: 0.18), value: loginLauncher.isBusy)
             if loginLauncher.status == .requiresApproval {
-                Label(String(localized: "Needs approval in System Settings → General → Login Items"),
+                Label("Needs approval in System Settings → General → Login Items",
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.caption)
@@ -255,7 +255,7 @@ struct SettingsPageView: View {
 
     private var interfaceLanguageSection: some View {
         Section(String(localized: "Interface Language")) {
-            Picker(String(localized: "Language"), selection: $appLanguage) {
+            Picker("Language", selection: $appLanguage) {
                 ForEach(AppLanguage.all) { language in
                     Text(language.name).tag(language.id)
                 }
@@ -274,7 +274,7 @@ struct SettingsPageView: View {
 
     private var appearanceSection: some View {
         Section(String(localized: "Appearance")) {
-            Picker(String(localized: "Theme"), selection: $appearanceRaw) {
+            Picker("Theme", selection: $appearanceRaw) {
                 ForEach(AppearanceMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
                 }
@@ -292,7 +292,7 @@ struct SettingsPageView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Toggle(String(localized: "Remove background colors"), isOn: $removeBackgroundColors)
+                Toggle("Remove background colors", isOn: $removeBackgroundColors)
                     .toggleStyle(.switch)
                     .labelsHidden()
             }
@@ -310,7 +310,7 @@ struct SettingsPageView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                TextField(String(localized: "Search languages"), text: $languageSearch)
+                TextField("Search languages", text: $languageSearch)
                     .textFieldStyle(.roundedBorder)
 
                 if filteredLanguages.isEmpty {
@@ -367,7 +367,7 @@ struct SettingsPageView: View {
                             .lineLimit(2)
                             .textSelection(.enabled)
                         Spacer(minLength: 8)
-                        Button(String(localized: "Remove"), role: .destructive) {
+                        Button("Remove", role: .destructive) {
                             FolderExclusionPreferences.remove(path)
                             excludedFolders = FolderExclusionPreferences.paths
                             exclusionError = nil
@@ -377,7 +377,7 @@ struct SettingsPageView: View {
                 }
             }
 
-            Button(String(localized: "Add Folder…")) {
+            Button("Add Folder…") {
                 addExcludedFolder()
             }
 

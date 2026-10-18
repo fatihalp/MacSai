@@ -33,7 +33,7 @@ struct OnboardingView: View {
 
             HStack {
                 if currentStep > 0 {
-                    Button(String(localized: "Back")) { withAnimation { currentStep -= 1 } }
+                    Button("Back") { withAnimation { currentStep -= 1 } }
                         .buttonStyle(.bordered)
                 }
 
@@ -50,11 +50,11 @@ struct OnboardingView: View {
                 Spacer()
 
                 if currentStep < 3 {
-                    Button(String(localized: "Next")) { withAnimation { currentStep += 1 } }
+                    Button("Next") { withAnimation { currentStep += 1 } }
                         .buttonStyle(.borderedProminent)
                         .tint(Color(nsColor: .systemBlue))
                 } else {
-                    Button(String(localized: "Get Started")) { isPresented = false }
+                    Button("Get Started") { isPresented = false }
                         .buttonStyle(.borderedProminent)
                         .tint(Color(nsColor: .systemBlue))
                 }
@@ -108,7 +108,7 @@ struct OnboardingView: View {
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            Button(String(localized: "Open System Settings")) {
+            Button("Open System Settings") {
                 PermissionManager.shared.openFullDiskAccessSettings()
             }
             .buttonStyle(.bordered)

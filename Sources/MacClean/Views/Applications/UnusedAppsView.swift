@@ -38,14 +38,14 @@ struct UnusedAppsView: View {
                 }
                 Spacer()
                 if !isLoading && !apps.isEmpty {
-                    Button(String(localized: "Select All")) {
+                    Button("Select All") {
                         selectedPaths = Set(apps.map(\.path))
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .keyboardShortcut("a", modifiers: .command)
 
-                    Button(String(localized: "Deselect All")) {
+                    Button("Deselect All") {
                         selectedPaths.removeAll()
                     }
                     .buttonStyle(.bordered)
@@ -53,7 +53,7 @@ struct UnusedAppsView: View {
                     .disabled(selectedPaths.isEmpty)
                     .keyboardShortcut("a", modifiers: [.command, .option])
                 }
-                Picker(String(localized: "Horizon"), selection: $horizon) {
+                Picker("Horizon", selection: $horizon) {
                     ForEach(UnusedAppHorizon.allCases) { h in
                         Text(h.label).tag(h)
                     }
@@ -63,7 +63,7 @@ struct UnusedAppsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading)
             }
@@ -137,7 +137,7 @@ struct UnusedAppsView: View {
                             Text(FileSizeFormatter.format(app.totalBytes))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.secondary)
-                            Button(String(localized: "Uninstall…")) {
+                            Button("Uninstall…") {
                                 appState.openUninstaller(forAppPath: app.path)
                             }
                             .buttonStyle(.bordered)
@@ -153,7 +153,7 @@ struct UnusedAppsView: View {
                         Text("\(selectedApps.count) app\(selectedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(selectedTotalBytes))")
                             .font(.system(size: 12.5, weight: .medium))
                         Spacer()
-                        Button(String(localized: "Deselect All")) {
+                        Button("Deselect All") {
                             selectedPaths.removeAll()
                         }
                         .buttonStyle(.bordered)
@@ -188,8 +188,8 @@ struct UnusedAppsView: View {
         )
         .alert("Move \(selectedApps.count) app\(selectedApps.count == 1 ? "" : "s") to the Trash?",
                isPresented: $showBatchConfirm) {
-            Button(String(localized: "Cancel"), role: .cancel) { }
-            Button(String(localized: "Move to Trash"), role: .destructive) {
+            Button("Cancel", role: .cancel) { }
+            Button("Move to Trash", role: .destructive) {
                 uninstallSelectedApps()
             }
         } message: {

@@ -56,7 +56,7 @@ struct ShredderView: View {
                         }
                     }
 
-                    Button(String(localized: "Done")) {
+                    Button("Done") {
                         self.result = nil
                         filesToShred = []
                     }
@@ -77,14 +77,14 @@ struct ShredderView: View {
                         .font(.system(size: 16))
                         .foregroundStyle(.primary.opacity(0.6))
 
-                    Button(String(localized: "Select Files")) {
+                    Button("Select Files") {
                         selectFiles()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.large)
 
-                    Picker(String(localized: "Mode"), selection: $eraseMode) {
+                    Picker("Mode", selection: $eraseMode) {
                         Text("Move to Trash").tag(SecureEraser.EraseMode.standard)
                         Text("Permanent Delete").tag(SecureEraser.EraseMode.permanent)
                         Text("Secure Erase").tag(SecureEraser.EraseMode.secure)
@@ -126,7 +126,7 @@ struct ShredderView: View {
                     )
                     .padding(.horizontal, 40)
 
-                    Button(String(localized: "Shred")) {
+                    Button("Shred") {
                         shred()
                     }
                     .buttonStyle(.borderedProminent)

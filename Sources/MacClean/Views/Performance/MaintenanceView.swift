@@ -27,7 +27,7 @@ struct MaintenanceView: View {
                 }
                 Spacer()
 
-                Button(String(localized: "Run Safe Tasks")) { runSafeTasks() }
+                Button("Run Safe Tasks") { runSafeTasks() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.regular)
@@ -53,10 +53,10 @@ struct MaintenanceView: View {
             ),
             presenting: taskAwaitingConfirmation
         ) { task in
-            Button(String(localized: "Cancel"), role: .cancel) {
+            Button("Cancel", role: .cancel) {
                 taskAwaitingConfirmation = nil
             }
-            Button(String(localized: "Run Anyway"), role: .destructive) {
+            Button("Run Anyway", role: .destructive) {
                 let captured = task
                 taskAwaitingConfirmation = nil
                 runTask(captured)

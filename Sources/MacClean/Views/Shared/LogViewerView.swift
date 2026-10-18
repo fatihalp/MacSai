@@ -32,7 +32,7 @@ struct LogViewerView: View {
                     .textSelection(.enabled)
             }
             Spacer()
-            Toggle(String(localized: "Errors only"), isOn: $errorsOnly)
+            Toggle("Errors only", isOn: $errorsOnly)
                 .toggleStyle(.switch)
                 .controlSize(.small)
         }
@@ -70,7 +70,7 @@ struct LogViewerView: View {
             Button {
                 revealInFinder()
             } label: {
-                Label(String(localized: "Reveal in Finder"), systemImage: "folder")
+                Label("Reveal in Finder", systemImage: "folder")
             }
             .buttonStyle(.bordered)
 
@@ -82,11 +82,11 @@ struct LogViewerView: View {
             }
             .buttonStyle(.bordered)
             .disabled(displayedText.isEmpty)
-            .help(String(localized: "Copy what you see to the clipboard — paste into a GitHub issue"))
+            .help("Copy what you see to the clipboard — paste into a GitHub issue")
 
             Spacer()
 
-            Button(String(localized: "Done")) { dismiss() }
+            Button("Done") { dismiss() }
                 .keyboardShortcut(.defaultAction)
         }
         .padding(14)

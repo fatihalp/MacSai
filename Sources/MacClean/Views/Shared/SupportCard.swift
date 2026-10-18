@@ -77,12 +77,12 @@ struct SupportCard: View {
 
     @ViewBuilder private var primaryActions: some View {
         Button(action: support) {
-            Label(String(localized: "Buy me a coffee"), systemImage: "heart.fill")
+            Label("Buy me a coffee", systemImage: "heart.fill")
         }
         .buttonStyle(CoffeeButtonStyle(fill: Self.coffee, ink: Self.coffeeInk))
         .help(MCConstants.supportURL.absoluteString)
 
-        Button(String(localized: "Maybe later"), action: dismiss)
+        Button("Maybe later", action: dismiss)
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.primary.opacity(0.6))
@@ -90,7 +90,7 @@ struct SupportCard: View {
     }
 
     private var optOutButton: some View {
-        Button(String(localized: "Don't ask again"), action: optOut)
+        Button("Don't ask again", action: optOut)
             .buttonStyle(.plain)
             .font(.system(size: 11))
             .foregroundStyle(.primary.opacity(0.5))

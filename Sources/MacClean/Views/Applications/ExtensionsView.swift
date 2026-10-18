@@ -27,10 +27,10 @@ struct ExtensionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isRemoving)
-                .help(String(localized: "Reload the extension list"))
+                .help("Reload the extension list")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -75,8 +75,8 @@ struct ExtensionsView: View {
             ),
             presenting: pendingRemove
         ) { item in
-            Button(String(localized: "Cancel"), role: .cancel) { pendingRemove = nil }
-            Button(String(localized: "Move to Trash"), role: .destructive) {
+            Button("Cancel", role: .cancel) { pendingRemove = nil }
+            Button("Move to Trash", role: .destructive) {
                 let captured = item
                 pendingRemove = nil
                 Task { await remove(captured) }
@@ -91,7 +91,7 @@ struct ExtensionsView: View {
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button(String(localized: "OK"), role: .cancel) { errorMessage = nil }
+            Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -152,7 +152,7 @@ struct ExtensionsView: View {
                 )
                 .font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Button(String(localized: "Open Safari Settings")) {
+                Button("Open Safari Settings") {
                     client.openSafariSettings()
                 }
                 .buttonStyle(.borderless)
@@ -212,23 +212,23 @@ struct ExtensionsView: View {
     private func actions(for item: ManagedExtension) -> some View {
         let action = client.removal(for: item)
         if item.kind == .safariExtension, action == .none {
-            Button(String(localized: "Open Settings")) {
+            Button("Open Settings") {
                 client.openSafariSettings()
             }
             .buttonStyle(.borderless)
             if let host = item.hostAppPath {
-                Button(String(localized: "Show Host App")) {
+                Button("Show Host App") {
                     client.revealInFinder(host)
                 }
                 .buttonStyle(.borderless)
             }
         } else {
-            Button(String(localized: "Reveal in Finder")) {
+            Button("Reveal in Finder") {
                 client.revealInFinder(item.path)
             }
             .buttonStyle(.borderless)
             if action == .trash {
-                Button(String(localized: "Remove")) {
+                Button("Remove") {
                     pendingRemove = item
                 }
                 .buttonStyle(.borderless)

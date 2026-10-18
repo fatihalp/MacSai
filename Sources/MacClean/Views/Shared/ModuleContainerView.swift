@@ -207,7 +207,7 @@ struct ModuleContainerView: View {
                     .foregroundStyle(.primary.opacity(0.65))
             }
             if let onCancelClean {
-                Button(String(localized: "Cancel")) { onCancelClean() }
+                Button("Cancel") { onCancelClean() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
@@ -254,7 +254,7 @@ struct ModuleContainerView: View {
             Text("Scan complete — nothing to clean up")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.55))
-            Button(String(localized: "Done")) { onReset() }
+            Button("Done") { onReset() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -278,16 +278,16 @@ struct ModuleContainerView: View {
                 .frame(maxWidth: 360)
             HStack(spacing: 10) {
                 if let onGrantAccess {
-                    Button(String(localized: "Open Settings")) { onGrantAccess() }
+                    Button("Open Settings") { onGrantAccess() }
                         .buttonStyle(.borderedProminent)
                         .tint(.primary)
                         .controlSize(.large)
                 }
-                Button(String(localized: "Rescan")) { onScan() }
+                Button("Rescan") { onScan() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
-                Button(String(localized: "Done")) { onReset() }
+                Button("Done") { onReset() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
@@ -465,14 +465,14 @@ struct ModuleContainerView: View {
                     Button {
                         showActivityLog = true
                     } label: {
-                        Label(String(localized: "View Log"), systemImage: "doc.text.magnifyingglass")
+                        Label("View Log", systemImage: "doc.text.magnifyingglass")
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
-                    .help(String(localized: "Open the activity log to see every error and copy details for a bug report"))
+                    .help("Open the activity log to see every error and copy details for a bug report")
                 }
-                Button(String(localized: "Done")) { onReset() }
+                Button("Done") { onReset() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
@@ -496,8 +496,8 @@ private struct CleanConfirmationModifier: ViewModifier {
                 "Clean \(selectedCount.formatted()) items?",
                 isPresented: $showLargeSelectionConfirm
             ) {
-                Button(String(localized: "Cancel"), role: .cancel) { }
-                Button(String(localized: "Continue"), role: .destructive) { onClean() }
+                Button("Cancel", role: .cancel) { }
+                Button("Continue", role: .destructive) { onClean() }
             } message: {
                 Text("That's about \(formattedSelectedSize) of data and may take several minutes. You can cancel mid-cleanup.")
             }
@@ -505,8 +505,8 @@ private struct CleanConfirmationModifier: ViewModifier {
                 String(localized: "Empty the Trash?"),
                 isPresented: $showEmptyTrashConfirm
             ) {
-                Button(String(localized: "Cancel"), role: .cancel) { }
-                Button(String(localized: "Empty Trash"), role: .destructive) { onClean() }
+                Button("Cancel", role: .cancel) { }
+                Button("Empty Trash", role: .destructive) { onClean() }
             } message: {
                 Text("This permanently deletes \(selectedCount.formatted()) item\(selectedCount == 1 ? "" : "s") (\(formattedSelectedSize)) and cannot be undone.")
             }

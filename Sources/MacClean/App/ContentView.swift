@@ -53,7 +53,7 @@ struct ContentView: View {
             }
         }
         .alert(
-            String(localized: "Update available"),
+            "Update available",
             isPresented: Binding(
                 get: { updateCoordinator.pendingUpdate != nil },
                 set: { if !$0 { updateCoordinator.dismiss() } }
@@ -62,18 +62,18 @@ struct ContentView: View {
         ) { pending in
             switch pending.action {
             case .brewCommand:
-                Button(String(localized: "Copy Upgrade Command")) {
+                Button("Copy Upgrade Command") {
                     updateCoordinator.performPrimaryAction()
                 }
             case .openRelease:
-                Button(String(localized: "Download")) {
+                Button("Download") {
                     updateCoordinator.performPrimaryAction()
                 }
             }
-            Button(String(localized: "Skip This Version")) {
+            Button("Skip This Version") {
                 updateCoordinator.skip(pending.version)
             }
-            Button(String(localized: "Later"), role: .cancel) {
+            Button("Later", role: .cancel) {
                 updateCoordinator.dismiss()
             }
         } message: { pending in

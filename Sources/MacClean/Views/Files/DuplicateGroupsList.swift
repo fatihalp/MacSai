@@ -186,7 +186,7 @@ private struct DuplicateOriginalRow: View {
         .padding(.vertical, 2)
         .opacity(0.85)
         .contextMenu {
-            Button(String(localized: "Reveal in Finder")) {
+            Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             }
         }
@@ -234,7 +234,7 @@ private struct DuplicateCopyRow: View {
         .contentShape(Rectangle())
         .onTapGesture { onToggle() }
         .contextMenu {
-            Button(String(localized: "Reveal in Finder")) {
+            Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             }
         }

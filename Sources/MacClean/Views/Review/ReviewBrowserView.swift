@@ -81,19 +81,19 @@ struct ReviewBrowserView: View {
                 Spacer()
 
                 HStack(spacing: 4) {
-                    Button(String(localized: "All")) {
+                    Button("All") {
                         selection.applyToAll(.all)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
 
-                    Button(String(localized: "Smart")) {
+                    Button("Smart") {
                         selection.applyToAll(.smart)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
 
-                    Button(String(localized: "None")) {
+                    Button("None") {
                         selection.applyToAll(.none)
                     }
                     .buttonStyle(.bordered)
@@ -278,7 +278,7 @@ struct ReviewBrowserView: View {
                         .foregroundStyle(.secondary)
                         .font(.system(size: 11))
 
-                    TextField(String(localized: "Search items..."), text: $searchText)
+                    TextField("Search items...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
 
@@ -306,20 +306,20 @@ struct ReviewBrowserView: View {
 
                 if !category.groups.isEmpty {
                     HStack(spacing: 6) {
-                        Button(String(localized: "Select All")) {
+                        Button("Select All") {
                             selection.apply(.all, toCategory: category.id)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .keyboardShortcut("a", modifiers: .command)
 
-                        Button(String(localized: "Smart")) {
+                        Button("Smart") {
                             selection.apply(.smart, toCategory: category.id)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
 
-                        Button(String(localized: "Deselect")) {
+                        Button("Deselect") {
                             selection.apply(.none, toCategory: category.id)
                         }
                         .buttonStyle(.bordered)
@@ -450,7 +450,7 @@ struct ReviewBrowserView: View {
                     HStack(spacing: 8) {
                         if node.appIsRunning {
                             Label(
-                                String(localized: "App is open"),
+                                "App is open",
                                 systemImage: "lock.fill"
                             )
                             .font(.system(size: 10.5, weight: .medium))
@@ -458,7 +458,7 @@ struct ReviewBrowserView: View {
                         }
                         if node.isSensitive {
                             Label(
-                                String(localized: "Sensitive path"),
+                                "Sensitive path",
                                 systemImage: "exclamationmark.shield.fill"
                             )
                             .font(.system(size: 10.5, weight: .medium))
@@ -497,11 +497,11 @@ struct ReviewBrowserView: View {
         }
         .help(node.basePath)
         .contextMenu {
-            Button(String(localized: "Reveal in Finder")) {
+            Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: node.basePath)])
             }
             if !node.isLeaf {
-                Button(String(localized: "Show Contents")) { drill(into: node) }
+                Button("Show Contents") { drill(into: node) }
             }
         }
     }
@@ -557,7 +557,7 @@ struct ReviewBrowserView: View {
 
             HStack(spacing: 8) {
                 if let onClean {
-                    Button(String(localized: "Back"), action: onDone)
+                    Button("Back", action: onDone)
                         .buttonStyle(.bordered)
                         .controlSize(.regular)
 
@@ -657,7 +657,7 @@ struct ReviewCheckbox: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Select"))
+        .accessibilityLabel("Select")
         .accessibilityValue(state == .on ? "1" : state == .mixed ? "0.5" : "0")
     }
 }

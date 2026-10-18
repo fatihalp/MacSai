@@ -205,7 +205,7 @@ public struct SidebarView: View {
         )
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .accessibilityLabel(String(localized: "Settings"))
+        .accessibilityLabel("Settings")
     }
 
     private func sidebarRow(_ item: SidebarItem) -> some View {

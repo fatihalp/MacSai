@@ -55,7 +55,7 @@ struct SpaceLensView: View {
             }
             Spacer()
             if !isScanning {
-                Button(String(localized: "Scan")) { startScan() }
+                Button("Scan") { startScan() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.regular)
@@ -73,11 +73,11 @@ struct SpaceLensView: View {
                         Button { nav.up(); startScan() } label: { Image(systemName: "chevron.up") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
                             .disabled(!nav.canGoUp)
-                            .help(String(localized: "Up one level"))
+                            .help("Up one level")
                         Button { nav.home(); startScan() } label: { Image(systemName: "house") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
                             .disabled(!nav.canGoUp)
-                            .help(String(localized: "Back to start"))
+                            .help("Back to start")
 
                         ForEach(nav.breadcrumbs, id: \.self) { url in
                             Button(url.lastPathComponent) {
@@ -118,7 +118,7 @@ struct SpaceLensView: View {
                     .font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(.secondary)
                 }
-                Button(String(localized: "Cancel")) {
+                Button("Cancel") {
                     scanTask?.cancel()
                     nav.cancelPendingNavigation()
                     isScanning = false

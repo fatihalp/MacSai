@@ -28,10 +28,10 @@ struct AppPermissionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading)
-                .help(String(localized: "Reload the permission list"))
+                .help("Reload the permission list")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -131,7 +131,7 @@ struct AppPermissionsView: View {
                 }
             }
             Spacer()
-            Button(String(localized: "Open in System Settings")) {
+            Button("Open in System Settings") {
                 client.openSettings(for: grant.permission)
             }
             .buttonStyle(.borderless)
@@ -182,7 +182,7 @@ struct AppPermissionsView: View {
             .font(.system(size: 12))
             .foregroundStyle(.primary.opacity(0.7))
             if snapshot.listing == .needsFullDiskAccess {
-                Button(String(localized: "Open in System Settings")) {
+                Button("Open in System Settings") {
                     client.openFullDiskAccessSettings()
                 }
                 .buttonStyle(.borderedProminent)

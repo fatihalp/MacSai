@@ -89,13 +89,13 @@ struct ProjectJunkView: View {
     private var projectResultsList: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Button(String(localized: "Select All")) {
+                Button("Select All") {
                     controller.selectedItems = Set(controller.items.map { URL(filePath: $0.path, directoryHint: .isDirectory) })
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
-                Button(String(localized: "Select Clean Git Repos")) {
+                Button("Select Clean Git Repos") {
                     let cleanURLs = controller.items.filter { item in
                         guard let status = controller.gitStatuses[item.projectPath] else {
                             return false
@@ -107,7 +107,7 @@ struct ProjectJunkView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
-                Button(String(localized: "Deselect All")) {
+                Button("Deselect All") {
                     controller.selectedItems.removeAll()
                 }
                 .buttonStyle(.bordered)
@@ -214,7 +214,7 @@ struct ProjectJunkView: View {
             }
         }
         .contextMenu {
-            Button(String(localized: "Reveal in Finder")) {
+            Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([itemURL])
             }
         }

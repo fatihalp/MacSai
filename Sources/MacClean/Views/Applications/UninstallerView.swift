@@ -55,7 +55,7 @@ struct UninstallerView: View {
                 Spacer()
                 if !isLoading && !filteredApps.isEmpty {
                     HStack(spacing: 8) {
-                        Button(String(localized: "Select All")) {
+                        Button("Select All") {
                             for app in filteredApps where !safetyGuard.isProtectedApp(app.bundleIdentifier) {
                                 checkedAppIDs.insert(app.id)
                             }
@@ -64,7 +64,7 @@ struct UninstallerView: View {
                         .controlSize(.small)
                         .keyboardShortcut("a", modifiers: .command)
 
-                        Button(String(localized: "Deselect All")) {
+                        Button("Deselect All") {
                             checkedAppIDs.removeAll()
                         }
                         .buttonStyle(.bordered)
@@ -89,10 +89,10 @@ struct UninstallerView: View {
                 Spacer()
             } else {
                 HStack(spacing: 10) {
-                    TextField(String(localized: "Search apps..."), text: $searchText)
+                    TextField("Search apps...", text: $searchText)
                         .textFieldStyle(.roundedBorder)
 
-                    Picker(String(localized: "Filter"), selection: $filter) {
+                    Picker("Filter", selection: $filter) {
                         ForEach(AppFilter.allCases, id: \.self) { f in
                             Text(f.label).tag(f)
                         }
@@ -133,7 +133,7 @@ struct UninstallerView: View {
                                 .font(.system(size: 12.5, weight: .medium))
                                 .foregroundStyle(.primary)
                             Spacer()
-                            Button(String(localized: "Deselect All")) {
+                            Button("Deselect All") {
                                 checkedAppIDs.removeAll()
                             }
                             .buttonStyle(.bordered)
@@ -182,8 +182,8 @@ struct UninstallerView: View {
         }
         .alert("Move \(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s") to the Trash?",
                isPresented: $showBatchConfirm) {
-            Button(String(localized: "Cancel"), role: .cancel) { }
-            Button(String(localized: "Move to Trash"), role: .destructive) {
+            Button("Cancel", role: .cancel) { }
+            Button("Move to Trash", role: .destructive) {
                 uninstallBatch(checkedApps)
             }
         } message: {
@@ -193,8 +193,8 @@ struct UninstallerView: View {
                isPresented: Binding(get: { appPendingUninstall != nil },
                                     set: { if !$0 { appPendingUninstall = nil } }),
                presenting: appPendingUninstall) { app in
-            Button(String(localized: "Cancel"), role: .cancel) { appPendingUninstall = nil }
-            Button(String(localized: "Move to Trash"), role: .destructive) {
+            Button("Cancel", role: .cancel) { appPendingUninstall = nil }
+            Button("Move to Trash", role: .destructive) {
                 let target = app; appPendingUninstall = nil; uninstall(target)
             }
         } message: { app in
@@ -203,7 +203,7 @@ struct UninstallerView: View {
         .alert(String(localized: "Uninstall"),
                isPresented: Binding(get: { uninstallError != nil },
                                     set: { if !$0 { uninstallError = nil } })) {
-            Button(String(localized: "OK"), role: .cancel) { uninstallError = nil }
+            Button("OK", role: .cancel) { uninstallError = nil }
         } message: {
             Text(uninstallError ?? "")
         }
@@ -213,8 +213,8 @@ struct UninstallerView: View {
                                  set: { if !$0 { appPendingReset = nil } }),
             presenting: appPendingReset
         ) { app in
-            Button(String(localized: "Cancel"), role: .cancel) { appPendingReset = nil }
-            Button(String(localized: "Reset to Defaults"), role: .destructive) {
+            Button("Cancel", role: .cancel) { appPendingReset = nil }
+            Button("Reset to Defaults", role: .destructive) {
                 let target = app; appPendingReset = nil; resetToDefaults(target)
             }
         } message: { app in
@@ -226,7 +226,7 @@ struct UninstallerView: View {
         .alert(String(localized: "Reset to Defaults"),
                isPresented: Binding(get: { resetError != nil },
                                     set: { if !$0 { resetError = nil } })) {
-            Button(String(localized: "OK"), role: .cancel) { resetError = nil }
+            Button("OK", role: .cancel) { resetError = nil }
         } message: {
             Text(resetError ?? "")
         }
@@ -336,19 +336,19 @@ struct UninstallerView: View {
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     } else {
-                        Button(String(localized: "Uninstall")) { appPendingUninstall = app }
+                        Button("Uninstall") { appPendingUninstall = app }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
                             .controlSize(.small)
                     }
 
-                    Button(String(localized: "Reset to Defaults")) {
+                    Button("Reset to Defaults") {
                         appPendingReset = app
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(AppReset.plan(app: app, associatedFiles: associatedFiles, selectedFiles: selectedFiles) == nil)
-                    .help(String(localized: "Clears caches, preferences, and saved state. The app stays installed."))
+                    .help("Clears caches, preferences, and saved state. The app stays installed.")
                 }
             }
             .padding()
@@ -366,12 +366,12 @@ struct UninstallerView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button(String(localized: "Select All")) {
+                    Button("Select All") {
                         selectedFiles = Set(associatedFiles.map(\.url))
                     }
                     .buttonStyle(.borderless)
                     .font(.system(size: 11))
-                    Button(String(localized: "None")) {
+                    Button("None") {
                         selectedFiles.removeAll()
                     }
                     .buttonStyle(.borderless)

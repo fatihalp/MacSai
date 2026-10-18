@@ -91,7 +91,7 @@ public struct FileListView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
             Menu {
-                Picker(String(localized: "Sort by"), selection: $sort) {
+                Picker("Sort by", selection: $sort) {
                     ForEach(FileListSort.allCases, id: \.self) { option in
                         Text(option.label).tag(option)
                     }

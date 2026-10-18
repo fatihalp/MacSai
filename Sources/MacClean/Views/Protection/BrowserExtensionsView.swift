@@ -25,7 +25,7 @@ struct BrowserExtensionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isWorking)
             }
@@ -86,7 +86,7 @@ struct BrowserExtensionsView: View {
             ),
             presenting: pending
         ) { ext in
-            Button(String(localized: "Cancel"), role: .cancel) { pending = nil }
+            Button("Cancel", role: .cancel) { pending = nil }
             Button(actionLabel(for: ext), role: ext.origin == .user ? .destructive : nil) {
                 let target = ext
                 pending = nil
@@ -102,7 +102,7 @@ struct BrowserExtensionsView: View {
                 set: { if !$0 { message = nil } }
             )
         ) {
-            Button(String(localized: "OK"), role: .cancel) { message = nil }
+            Button("OK", role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
         }
