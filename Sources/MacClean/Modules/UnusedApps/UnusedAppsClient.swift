@@ -2,24 +2,17 @@ import CoreServices
 import Foundation
 import MacCleanKit
 
-/// Discovers installed apps and builds `UnusedAppRecord`s with Spotlight
-/// last-used dates and support-file footprint.
 public struct UnusedAppsClient: Sendable {
     private let discovery = AppDiscovery()
     private let pathFinder = AppPathFinder()
 
     public init() {}
 
-    /// Every installed app with its Spotlight last-used date. Support files
-    /// are sized only for apps idle past the shortest horizon, so switching
-    /// horizons can filter this in memory instead of rescanning.
-    /// `runningAppPaths` comes from NSWorkspace on the main actor.
     public func records(runningAppPaths: Set<String>) async -> [UnusedAppRecord] {
         let apps = await discovery.discoverApps()
         let shortestCutoff = UnusedAppHorizon.threeMonths.cutoff(from: Date())
         return apps.map { app -> UnusedAppRecord in
-            // No atime fallback: a bundle's access date is not updated on
-            // launch, so it made apps in daily use look idle for months.
+
             let lastUsed = Self.spotlightLastUsed(at: app.path)
             let path = app.path.path(percentEncoded: false)
             let isCandidate = !app.isAppleApp && (lastUsed.map { $0 <= shortestCutoff } ?? false)

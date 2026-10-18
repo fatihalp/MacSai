@@ -16,14 +16,10 @@ struct ExtensionsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("扩展", "Extensions", "Расширения"))
+                    Text("Extensions")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr(
-                        "查看第三方偏好设置面板、Internet 插件和 Safari 扩展。用户安装的面板和插件可移到废纸篓。",
-                        "Review third-party preference panes, Internet Plug-Ins, and Safari extensions. User-installed panes and plug-ins can go to the Trash.",
-                        "Просматривайте сторонние панели настроек, интернет-плагины и расширения Safari. Установленные пользователем панели и плагины можно переместить в Корзину."
-                    ))
+                    Text("Review third-party preference panes, Internet Plug-Ins, and Safari extensions. User-installed panes and plug-ins can go to the Trash.")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.6))
                 }
@@ -31,10 +27,10 @@ struct ExtensionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(L10n.tr("刷新", "Refresh", "Обновить"), systemImage: "arrow.clockwise")
+                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isRemoving)
-                .help(L10n.tr("重新读取扩展列表", "Reload the extension list", "Заново прочитать список расширений"))
+                .help(String(localized: "Reload the extension list"))
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -46,23 +42,23 @@ struct ExtensionsView: View {
                         ProgressView()
                             .controlSize(.large)
                             .tint(.primary)
-                        Text(L10n.tr("正在查找扩展…", "Looking for extensions…", "Поиск расширений…"))
+                        Text("Looking for extensions…")
                             .font(.system(size: 13))
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
                     }
-                    // Fill the card like the list does; otherwise the container
-                    // shrinks to the text width instead of the fixed page width.
+
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     list
                 }
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
@@ -72,34 +68,30 @@ struct ExtensionsView: View {
             canScan: !isLoading && !isRemoving
         )
         .alert(
-            L10n.tr("移到废纸篓？", "Move to Trash?", "Переместить в Корзину?"),
+            String(localized: "Move to Trash?"),
             isPresented: Binding(
                 get: { pendingRemove != nil },
                 set: { if !$0 { pendingRemove = nil } }
             ),
             presenting: pendingRemove
         ) { item in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { pendingRemove = nil }
-            Button(L10n.tr("移到废纸篓", "Move to Trash", "Переместить в Корзину"), role: .destructive) {
+            Button(String(localized: "Cancel"), role: .cancel) { pendingRemove = nil }
+            Button(String(localized: "Move to Trash"), role: .destructive) {
                 let captured = item
                 pendingRemove = nil
                 Task { await remove(captured) }
             }
         } message: { item in
-            Text(L10n.tr(
-                "\(item.name) 将被移到废纸篓。如有需要，你可以从废纸篓恢复。",
-                "\(item.name) will be moved to the Trash. You can restore it from the Trash if needed.",
-                "«\(item.name)» будет перемещено в Корзину. При необходимости его можно восстановить."
-            ))
+            Text("\(item.name) will be moved to the Trash. You can restore it from the Trash if needed.")
         }
         .alert(
-            L10n.tr("扩展", "Extensions", "Расширения"),
+            String(localized: "Extensions"),
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button(L10n.tr("好", "OK"), role: .cancel) { errorMessage = nil }
+            Button(String(localized: "OK"), role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -108,29 +100,23 @@ struct ExtensionsView: View {
     private var list: some View {
         List {
             if items.isEmpty {
-                Text(L10n.tr(
-                    "未找到第三方扩展、插件或偏好设置面板。",
-                    "No third-party extensions, plug-ins, or preference panes found.",
-                    "Сторонние расширения, плагины и панели настроек не найдены."
-                ))
+                Text("No third-party extensions, plug-ins, or preference panes found.")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.4))
                 .listRowSeparator(.hidden)
             } else {
-                // Only show a section that actually has items, so empty
-                // categories don't read as "the feature found nothing / is
-                // broken". The whole-empty case is handled above.
+
                 if items.contains(where: { $0.kind == .preferencePane }) {
                     section(
                         kind: .preferencePane,
-                        title: L10n.tr("偏好设置面板", "Preference Panes", "Панели настроек"),
+                        title: String(localized: "Preference Panes"),
                         icon: "slider.horizontal.3"
                     )
                 }
                 if items.contains(where: { $0.kind == .internetPlugin }) {
                     section(
                         kind: .internetPlugin,
-                        title: L10n.tr("Internet 插件", "Internet Plug-Ins", "Интернет-плагины"),
+                        title: String(localized: "Internet Plug-Ins"),
                         icon: "puzzlepiece.extension"
                     )
                 }
@@ -146,7 +132,7 @@ struct ExtensionsView: View {
         let rows = items.filter { $0.kind == .safariExtension }
         return Section {
             if rows.isEmpty {
-                Text(L10n.tr("未列出任何 Safari 扩展", "No Safari extensions listed", "Расширения Safari не показаны"))
+                Text("No Safari extensions listed")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.4))
             } else {
@@ -154,23 +140,19 @@ struct ExtensionsView: View {
                     row(item)
                 }
             }
-            Text(L10n.tr(
-                "Safari 扩展不能在本应用内开启、关闭或删除，以免破坏宿主应用的签名。请在 Safari 设置中管理它们。",
-                "Safari extensions can't be turned on, off, or deleted here — that would break the host app's signature. Manage them in Safari Settings.",
-                "Расширения Safari нельзя включать, выключать или удалять здесь — это сломает подпись приложения-хоста. Управляйте ими в настройках Safari."
-            ))
+            Text("Safari extensions can't be turned on, off, or deleted here — that would break the host app's signature. Manage them in Safari Settings.")
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
             .padding(.top, 4)
         } header: {
             HStack {
                 Label(
-                    L10n.tr("Safari 扩展", "Safari Extensions", "Расширения Safari"),
+                    String(localized: "Safari Extensions"),
                     systemImage: "safari"
                 )
                 .font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Button(L10n.tr("打开 Safari 设置", "Open Safari Settings", "Открыть настройки Safari")) {
+                Button(String(localized: "Open Safari Settings")) {
                     client.openSafariSettings()
                 }
                 .buttonStyle(.borderless)
@@ -182,7 +164,7 @@ struct ExtensionsView: View {
         let rows = items.filter { $0.kind == kind }
         return Section {
             if rows.isEmpty {
-                Text(L10n.tr("未找到项目", "Nothing found", "Ничего не найдено"))
+                Text("Nothing found")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.4))
             } else {
@@ -206,11 +188,11 @@ struct ExtensionsView: View {
                     Text(item.name)
                         .font(.system(size: 13, weight: .medium))
                     if item.election == .enabled {
-                        Text(L10n.tr("已启用", "On", "Вкл."))
+                        Text("On")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                     } else if item.election == .disabled {
-                        Text(L10n.tr("已停用", "Off", "Выкл."))
+                        Text("Off")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -230,23 +212,23 @@ struct ExtensionsView: View {
     private func actions(for item: ManagedExtension) -> some View {
         let action = client.removal(for: item)
         if item.kind == .safariExtension, action == .none {
-            Button(L10n.tr("打开设置", "Open Settings", "Открыть настройки")) {
+            Button(String(localized: "Open Settings")) {
                 client.openSafariSettings()
             }
             .buttonStyle(.borderless)
             if let host = item.hostAppPath {
-                Button(L10n.tr("显示宿主应用", "Show Host App", "Показать приложение")) {
+                Button(String(localized: "Show Host App")) {
                     client.revealInFinder(host)
                 }
                 .buttonStyle(.borderless)
             }
         } else {
-            Button(L10n.tr("在 Finder 中显示", "Reveal in Finder", "Показать в Finder")) {
+            Button(String(localized: "Reveal in Finder")) {
                 client.revealInFinder(item.path)
             }
             .buttonStyle(.borderless)
             if action == .trash {
-                Button(L10n.tr("移除", "Remove", "Удалить")) {
+                Button(String(localized: "Remove")) {
                     pendingRemove = item
                 }
                 .buttonStyle(.borderless)
@@ -258,8 +240,8 @@ struct ExtensionsView: View {
 
     private func subtitle(for item: ManagedExtension) -> String {
         let location = item.domain == .user
-            ? L10n.tr("用户", "User", "Пользователь")
-            : L10n.tr("这台 Mac", "This Mac", "Этот Mac")
+            ? String(localized: "User")
+            : String(localized: "This Mac")
         if let host = item.hostAppPath {
             return "\(location) · \(host.deletingPathExtension().lastPathComponent)"
         }
@@ -280,11 +262,7 @@ struct ExtensionsView: View {
         isRemoving = true
         let urls = client.trashURLs(from: [item])
         guard !urls.isEmpty else {
-            errorMessage = L10n.tr(
-                "出于安全考虑，已拒绝移除此项目。",
-                "This item was refused for safety reasons.",
-                "Удаление этого объекта отклонено из соображений безопасности."
-            )
+            errorMessage = String(localized: "This item was refused for safety reasons.")
             isRemoving = false
             return
         }
@@ -304,11 +282,7 @@ struct ExtensionsView: View {
             engine: appState.cleaningEngine
         )
         if !result.errors.isEmpty {
-            errorMessage = L10n.tr(
-                "无法将 \(item.name) 移到废纸篓。",
-                "Couldn't move \(item.name) to the Trash.",
-                "Не удалось переместить «\(item.name)» в Корзину."
-            )
+            errorMessage = "Couldn't move \(item.name) to the Trash."
         }
         await reload()
         isRemoving = false

@@ -7,7 +7,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+
             HStack {
                 Spacer()
                 Button { isPresented = false } label: {
@@ -21,7 +21,6 @@ struct OnboardingView: View {
 
             Spacer()
 
-            // Step content
             TabView(selection: $currentStep) {
                 welcomeStep.tag(0)
                 fdaStep.tag(1)
@@ -32,10 +31,9 @@ struct OnboardingView: View {
 
             Spacer()
 
-            // Navigation
             HStack {
                 if currentStep > 0 {
-                    Button(L10n.tr("返回", "Back", "Назад")) { withAnimation { currentStep -= 1 } }
+                    Button(String(localized: "Back")) { withAnimation { currentStep -= 1 } }
                         .buttonStyle(.bordered)
                 }
 
@@ -44,7 +42,7 @@ struct OnboardingView: View {
                 HStack(spacing: 6) {
                     ForEach(0..<4, id: \.self) { i in
                         Circle()
-                            .fill(i == currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
+                            .fill(i == currentStep ? Color(nsColor: .systemBlue) : Color.secondary.opacity(0.3))
                             .frame(width: 8, height: 8)
                     }
                 }
@@ -52,21 +50,20 @@ struct OnboardingView: View {
                 Spacer()
 
                 if currentStep < 3 {
-                    Button(L10n.tr("下一步", "Next", "Далее")) { withAnimation { currentStep += 1 } }
+                    Button(String(localized: "Next")) { withAnimation { currentStep += 1 } }
                         .buttonStyle(.borderedProminent)
+                        .tint(Color(nsColor: .systemBlue))
                 } else {
-                    Button(L10n.tr("开始使用", "Get Started", "Начать")) { isPresented = false }
+                    Button(String(localized: "Get Started")) { isPresented = false }
                         .buttonStyle(.borderedProminent)
+                        .tint(Color(nsColor: .systemBlue))
                 }
             }
             .padding(24)
         }
-        // Was 600x450; the FDA step's full content (icon + title + body
-        // + 4 numbered steps + "Open System Settings" button) exceeded
-        // that and clipped the Back/Next buttons at the bottom of the
-        // sheet on real installs. 620 height gives every step room
-        // without becoming an empty-looking sheet on shorter steps.
+
         .frame(width: 600, height: 620)
+        .background(Color.white)
     }
 
     private var welcomeStep: some View {
@@ -75,10 +72,10 @@ struct OnboardingView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.green)
 
-            Text(L10n.tr("欢迎使用 \(MCConstants.appName)", "Welcome to \(MCConstants.appName)", "Добро пожаловать в \(MCConstants.appName)"))
+            Text("Welcome to \(MCConstants.appName)")
                 .font(.system(size: 28, weight: .bold))
 
-            Text(L10n.tr("以开源方式让你的 Mac 保持干净、快速和安全。", "The open-source way to keep your Mac clean, fast, and secure.", "Инструмент с открытым исходным кодом для чистоты, быстродействия и безопасности вашего Mac."))
+            Text("The open-source way to keep your Mac clean, fast, and secure.")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -92,26 +89,26 @@ struct OnboardingView: View {
                 .font(.system(size: 50))
                 .foregroundStyle(.blue)
 
-            Text(L10n.tr("完全磁盘访问权限", "Full Disk Access", "Полный доступ к диску"))
+            Text("Full Disk Access")
                 .font(.system(size: 24, weight: .bold))
 
-            Text(L10n.tr("\(MCConstants.appName) 需要完全磁盘访问权限，才能扫描邮件、Safari 和其他受保护区域。未授予时，部分功能会受限。", "\(MCConstants.appName) needs Full Disk Access to scan Mail, Safari, and other protected areas. Without it, some features will be limited.", "\(MCConstants.appName) требуется полный доступ к диску для сканирования Почты, Safari и других защищённых областей. Без него некоторые функции будут ограничены."))
+            Text("\(MCConstants.appName) needs Full Disk Access to scan Mail, Safari, and other protected areas. Without it, some features will be limited.")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
 
             VStack(alignment: .leading, spacing: 8) {
-                step("1", L10n.tr("打开系统设置", "Open System Settings", "Откройте Системные настройки"))
-                step("2", L10n.tr("前往“隐私与安全性 → 完全磁盘访问权限”", "Go to Privacy & Security → Full Disk Access", "Перейдите в «Конфиденциальность и безопасность → Полный доступ к диску»"))
-                step("3", L10n.tr("点击 + 按钮并添加 \(MCConstants.appName)", "Click the + button and add \(MCConstants.appName)", "Нажмите + и добавьте \(MCConstants.appName)"))
-                step("4", L10n.tr("重新启动 \(MCConstants.appName)", "Restart \(MCConstants.appName)", "Перезапустите \(MCConstants.appName)"))
+                step("1", String(localized: "Open System Settings"))
+                step("2", String(localized: "Go to Privacy & Security → Full Disk Access"))
+                step("3", "Click the + button and add \(MCConstants.appName)")
+                step("4", "Restart \(MCConstants.appName)")
             }
             .padding()
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            Button(L10n.tr("打开系统设置", "Open System Settings", "Открыть Системные настройки")) {
+            Button(String(localized: "Open System Settings")) {
                 PermissionManager.shared.openFullDiskAccessSettings()
             }
             .buttonStyle(.bordered)
@@ -120,16 +117,16 @@ struct OnboardingView: View {
 
     private var featuresStep: some View {
         VStack(spacing: 20) {
-            Text(L10n.tr("\(MCConstants.appName) 可以做什么", "What \(MCConstants.appName) Can Do", "Возможности \(MCConstants.appName)"))
+            Text("What \(MCConstants.appName) Can Do")
                 .font(.system(size: 24, weight: .bold))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                featureCard("trash.circle", L10n.tr("系统垃圾", "System Junk", "Системный мусор"), L10n.tr("清理缓存、日志和临时文件", "Clean caches, logs, and temp files", "Очистка кэшей, журналов и временных файлов"))
-                featureCard("shield.lefthalf.filled", L10n.tr("恶意软件扫描", "Malware Scan", "Проверка на вредоносное ПО"), L10n.tr("检测并移除威胁", "Detect and remove threats", "Поиск и удаление угроз"))
-                featureCard("xmark.app", L10n.tr("卸载器", "Uninstaller", "Удаление приложений"), L10n.tr("彻底移除应用", "Completely remove apps", "Полное удаление приложений"))
-                featureCard("chart.pie", L10n.tr("空间透视", "Space Lens", "Карта диска"), L10n.tr("可视化磁盘使用情况", "Visualize disk usage", "Визуализация использования диска"))
-                featureCard("plus.square.on.square", L10n.tr("重复文件", "Duplicates", "Дубликаты"), L10n.tr("查找重复文件", "Find duplicate files", "Поиск дубликатов"))
-                featureCard("gauge.with.dots.needle.67percent", L10n.tr("性能", "Performance", "Производительность"), L10n.tr("优化你的 Mac", "Optimize your Mac", "Оптимизация Mac"))
+                featureCard("trash.circle", String(localized: "System Junk"), String(localized: "Clean caches, logs, and temp files"))
+                featureCard("shield.lefthalf.filled", String(localized: "Malware Scan"), String(localized: "Detect and remove threats"))
+                featureCard("xmark.app", String(localized: "Uninstaller"), String(localized: "Completely remove apps"))
+                featureCard("chart.pie", String(localized: "Space Lens"), String(localized: "Visualize disk usage"))
+                featureCard("plus.square.on.square", String(localized: "Duplicates"), String(localized: "Find duplicate files"))
+                featureCard("gauge.with.dots.needle.67percent", String(localized: "Performance"), String(localized: "Optimize your Mac"))
             }
             .frame(maxWidth: 450)
         }
@@ -141,10 +138,10 @@ struct OnboardingView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.green)
 
-            Text(L10n.tr("一切就绪！", "You're All Set!", "Всё готово!"))
+            Text("You're All Set!")
                 .font(.system(size: 28, weight: .bold))
 
-            Text(L10n.tr("点击“智能扫描”即可一键清理 Mac，也可以在侧边栏探索各个模块。", "Click Smart Scan to clean your Mac with one click, or explore individual modules in the sidebar.", "Нажмите «Умное сканирование», чтобы очистить Mac одним действием, или выберите отдельный модуль на боковой панели."))
+            Text("Click Smart Scan to clean your Mac with one click, or explore individual modules in the sidebar.")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -157,8 +154,8 @@ struct OnboardingView: View {
             Text(number)
                 .font(.system(size: 12, weight: .bold))
                 .frame(width: 22, height: 22)
-                .background(Color.accentColor)
-                .foregroundStyle(.primary)
+                .background(Color(nsColor: .systemBlue))
+                .foregroundStyle(.white)
                 .clipShape(Circle())
             Text(text)
                 .font(.system(size: 13))

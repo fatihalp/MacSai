@@ -15,7 +15,7 @@ struct BrowserExtensionsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("浏览器扩展", "Browser Extensions", "Расширения браузеров"))
+                    Text("Browser Extensions")
                         .font(.system(size: 22, weight: .bold))
                     Text(BrowserExtensionsStrings.subtitle)
                         .font(.system(size: 12))
@@ -25,7 +25,7 @@ struct BrowserExtensionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(L10n.tr("刷新", "Refresh", "Обновить"), systemImage: "arrow.clockwise")
+                    Label(String(localized: "Refresh"), systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isWorking)
             }
@@ -67,11 +67,12 @@ struct BrowserExtensionsView: View {
                     .listStyle(.inset)
                 }
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
@@ -85,7 +86,7 @@ struct BrowserExtensionsView: View {
             ),
             presenting: pending
         ) { ext in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { pending = nil }
+            Button(String(localized: "Cancel"), role: .cancel) { pending = nil }
             Button(actionLabel(for: ext), role: ext.origin == .user ? .destructive : nil) {
                 let target = ext
                 pending = nil
@@ -95,13 +96,13 @@ struct BrowserExtensionsView: View {
             Text(BrowserExtensionsStrings.confirmMessage(for: ext))
         }
         .alert(
-            L10n.tr("浏览器扩展", "Browser Extensions", "Расширения браузеров"),
+            String(localized: "Browser Extensions"),
             isPresented: Binding(
                 get: { message != nil },
                 set: { if !$0 { message = nil } }
             )
         ) {
-            Button(L10n.tr("好", "OK"), role: .cancel) { message = nil }
+            Button(String(localized: "OK"), role: .cancel) { message = nil }
         } message: {
             Text(message ?? "")
         }
@@ -156,9 +157,9 @@ struct BrowserExtensionsView: View {
 
     private func actionLabel(for ext: BrowserExtensionRecord) -> String {
         switch ext.origin {
-        case .safariApp: L10n.tr("在设置中打开", "Open in Settings", "Открыть в настройках")
+        case .safariApp: String(localized: "Open in Settings")
         case .policy, .component: BrowserExtensionsStrings.details
-        case .user: L10n.tr("移除", "Remove", "Удалить")
+        case .user: String(localized: "Remove")
         }
     }
 
@@ -177,78 +178,51 @@ struct BrowserExtensionsView: View {
     }
 }
 
-/// Every user-facing string of the Browser Extensions screen. `{browser}`
-/// and `{url}` are filled after lookup so the translation tables stay keyed
-/// by plain strings.
 enum BrowserExtensionsStrings {
     static var subtitle: String {
-        L10n.tr(
-            "Chrome、Brave、Edge、Arc、Firefox 和 Safari 的扩展。名称与已知广告软件家族相符的会标为可疑。",
-            "Extensions from Chrome, Brave, Edge, Arc, Firefox, and Safari. Names that match known adware families are marked Suspicious.",
-            "Расширения Chrome, Brave, Edge, Arc, Firefox и Safari. Названия, совпадающие с известными семействами рекламного ПО, помечаются как подозрительные."
-        )
+        String(localized: "Extensions from Chrome, Brave, Edge, Arc, Firefox, and Safari. Names that match known adware families are marked Suspicious.")
     }
 
     static var reading: String {
-        L10n.tr("正在读取扩展…", "Reading extensions…", "Чтение расширений…")
+        String(localized: "Reading extensions…")
     }
 
     static var empty: String {
-        L10n.tr(
-            "在 Chrome、Brave、Edge、Arc、Firefox 或 Safari 中未找到扩展",
-            "No extensions found in Chrome, Brave, Edge, Arc, Firefox, or Safari",
-            "Расширения в Chrome, Brave, Edge, Arc, Firefox и Safari не найдены"
-        )
+        String(localized: "No extensions found in Chrome, Brave, Edge, Arc, Firefox, or Safari")
     }
 
     static var safariUnavailable: String {
-        L10n.tr(
-            "无法读取 Safari 扩展列表。请在 Safari 设置 > 扩展中查看。",
-            "Couldn't read the list of Safari extensions. Check Safari Settings > Extensions instead.",
-            "Не удалось прочитать список расширений Safari. Проверьте их в Safari: Настройки > Расширения."
-        )
+        String(localized: "Couldn't read the list of Safari extensions. Check Safari Settings > Extensions instead.")
     }
 
-    static var suspicious: String { L10n.tr("可疑", "Suspicious", "Подозрительное") }
+    static var suspicious: String { String(localized: "Suspicious") }
 
     static var suspiciousHelp: String {
-        L10n.tr(
-            "名称与已知广告软件家族相符。这只是提示，并非确认。",
-            "The name matches a known adware family. This is a hint, not a confirmed detection.",
-            "Название совпадает с известным семейством рекламного ПО. Это подсказка, а не подтверждённое обнаружение."
-        )
+        String(localized: "The name matches a known adware family. This is a hint, not a confirmed detection.")
     }
 
-    static var policyTag: String { L10n.tr("由策略安装", "Installed by policy", "Установлено политикой") }
-    static var builtInTag: String { L10n.tr("内置", "Built in", "Встроенное") }
-    static var unknownDate: String { L10n.tr("未知日期", "Unknown date", "Дата неизвестна") }
-    static var details: String { L10n.tr("详情", "Details", "Подробнее") }
+    static var policyTag: String { String(localized: "Installed by policy") }
+    static var builtInTag: String { String(localized: "Built in") }
+    static var unknownDate: String { String(localized: "Unknown date") }
+    static var details: String { String(localized: "Details") }
 
     static func confirmTitle(for record: BrowserExtensionRecord?) -> String {
         guard let record, record.origin == .user else {
-            return L10n.tr("关于此扩展", "About this extension", "Об этом расширении")
+            return String(localized: "About this extension")
         }
-        return L10n.tr("移除扩展？", "Remove extension?", "Удалить расширение?")
+        return String(localized: "Remove extension?")
     }
 
     static func confirmMessage(for record: BrowserExtensionRecord) -> String {
         switch record.origin {
         case .safariApp:
-            return L10n.tr(
-                "Safari 扩展随 App 一起安装，由 macOS 管理，因此此列表只读。将改为打开“设置”。",
-                "Safari extensions come with apps and are managed by macOS, so this list is read-only. Settings will open instead.",
-                "Расширения Safari устанавливаются вместе с приложениями и управляются macOS, поэтому список только для чтения. Вместо этого откроются Настройки."
-            )
+            return String(localized: "Safari extensions come with apps and are managed by macOS, so this list is read-only. Settings will open instead.")
         case .policy:
             return fill(policyText, record.browser)
         case .component:
             return fill(builtInText, record.browser)
         case .user:
-            return fill(L10n.tr(
-                "如果 {browser} 已关闭，扩展文件夹会移到废纸篓。如果它正在运行，则不会删除任何内容，并会告诉你在哪里移除。如果你开启了 {browser} 同步，它可能会重新安装此扩展。",
-                "If {browser} is closed, the extension folder moves to the Trash. If it is open, nothing is deleted and you'll see where to remove it. If you use {browser} sync, it may reinstall the extension.",
-                "Если {browser} закрыт, папка расширения будет перемещена в Корзину. Если он открыт, ничего не удаляется, и вы увидите, где удалить расширение. Если включена синхронизация {browser}, расширение может установиться снова."
-            ), record.browser)
+            return fill(String(localized: "If {browser} is closed, the extension folder moves to the Trash. If it is open, nothing is deleted and you'll see where to remove it. If you use {browser} sync, it may reinstall the extension."), record.browser)
         }
     }
 
@@ -257,7 +231,7 @@ enum BrowserExtensionsStrings {
         case .openedSafariSettings:
             return nil
         case .trashed:
-            return L10n.tr("已将扩展移到废纸篓。", "The extension was moved to the Trash.", "Расширение перемещено в Корзину.")
+            return String(localized: "The extension was moved to the Trash.")
         case .removeInBrowser(let browser):
             return removeInBrowserText(browser)
         case .managedByPolicy(let browser):
@@ -265,30 +239,18 @@ enum BrowserExtensionsStrings {
         case .builtIn(let browser):
             return fill(builtInText, browser)
         case .refused:
-            return L10n.tr(
-                "Mac Sai 无法确认此扩展的文件夹可以安全移除，因此未删除任何内容。",
-                "Mac Sai couldn't confirm this extension's folder is safe to remove, so nothing was deleted.",
-                "Mac Sai не смог подтвердить, что папку расширения безопасно удалить, поэтому ничего не удалено."
-            )
+            return String(localized: "Mac Sai couldn't confirm this extension's folder is safe to remove, so nothing was deleted.")
         case .failed(let error):
-            return L10n.tr("无法移到废纸篓：", "Couldn't move it to the Trash: ", "Не удалось переместить в Корзину: ") + error
+            return String(localized: "Couldn't move it to the Trash: ") + error
         }
     }
 
     static func removeInBrowserText(_ browser: BrowserKind) -> String {
         switch browser {
         case .chrome:
-            return L10n.tr(
-                "Chrome 正在运行，因此未删除任何内容。请在 Chrome 中通过“窗口 > 扩展程序”移除此扩展。",
-                "Chrome is open, so nothing was deleted. Remove the extension in Chrome from Window > Extensions.",
-                "Chrome открыт, поэтому ничего не удалено. Удалите расширение в Chrome через меню «Окно > Расширения»."
-            )
+            return String(localized: "Chrome is open, so nothing was deleted. Remove the extension in Chrome from Window > Extensions.")
         case .firefox:
-            return L10n.tr(
-                "Firefox 正在运行，因此未删除任何内容。请在 Firefox 中通过“工具 > 附加组件和主题”移除此扩展。",
-                "Firefox is open, so nothing was deleted. Remove the extension in Firefox from Tools > Add-ons and Themes.",
-                "Firefox открыт, поэтому ничего не удалено. Удалите расширение в Firefox через меню «Инструменты > Дополнения и темы»."
-            )
+            return String(localized: "Firefox is open, so nothing was deleted. Remove the extension in Firefox from Tools > Add-ons and Themes.")
         case .brave, .edge, .arc, .safari:
             let url: String
             switch browser {
@@ -296,28 +258,16 @@ enum BrowserExtensionsStrings {
             case .edge: url = "edge://extensions"
             default: url = "arc://extensions"
             }
-            return fill(L10n.tr(
-                "{browser} 正在运行，因此未删除任何内容。请在 {browser} 的地址栏中打开 {url} 来移除此扩展。",
-                "{browser} is open, so nothing was deleted. Remove the extension in {browser} by opening {url} in the address bar.",
-                "{browser} открыт, поэтому ничего не удалено. Удалите расширение в {browser}, открыв {url} в адресной строке."
-            ), browser).replacingOccurrences(of: "{url}", with: url)
+            return fill(String(localized: "{browser} is open, so nothing was deleted. Remove the extension in {browser} by opening {url} in the address bar."), browser).replacingOccurrences(of: "{url}", with: url)
         }
     }
 
     static var policyText: String {
-        L10n.tr(
-            "此扩展由管理策略安装，删除文件夹后 {browser} 会重新安装它。如果你不认识它，请在系统设置中搜索“描述文件”或“设备管理”，并移除你不认识的描述文件。",
-            "This extension was installed by a management policy, so {browser} would reinstall it. If you don't recognize it, search System Settings for Profiles or Device Management and remove any profile you don't recognize.",
-            "Это расширение установлено политикой управления, поэтому {browser} установит его снова. Если вы его не узнаёте, найдите в Системных настройках раздел «Профили» или «Управление устройством» и удалите незнакомый профиль."
-        )
+        String(localized: "This extension was installed by a management policy, so {browser} would reinstall it. If you don't recognize it, search System Settings for Profiles or Device Management and remove any profile you don't recognize.")
     }
 
     static var builtInText: String {
-        L10n.tr(
-            "此扩展内置于 {browser}，无法移除。",
-            "This extension is built into {browser} and can't be removed.",
-            "Это расширение встроено в {browser} и не может быть удалено."
-        )
+        String(localized: "This extension is built into {browser} and can't be removed.")
     }
 
     static func fill(_ text: String, _ browser: BrowserKind) -> String {

@@ -3,7 +3,7 @@ import MacCleanKit
 
 public struct MailAttachmentsModule: ScanModule {
     public let id = "mail_attachments"
-    public var name: String { L10n.tr("邮件附件", "Mail Attachments", "Почтовые вложения") }
+    public var name: String { String(localized: "Mail Attachments") }
     public let category = ModuleCategory.cleanup
 
     private let scanner = TargetedScanner()
@@ -12,17 +12,17 @@ public struct MailAttachmentsModule: ScanModule {
 
     public func scan() async -> [ScanResult] {
         let targets = [
-            // Apple Mail downloads
+
             ScanTarget(
                 path: MCConstants.mailDownloads,
                 recursive: true
             ),
-            // Apple Mail container downloads
+
             ScanTarget(
                 path: MCConstants.mailContainerDownloads,
                 recursive: true
             ),
-            // Apple Mail V-directories (attachment caches inside mailboxes)
+
             ScanTarget(
                 path: MCConstants.mailData,
                 recursive: true,
@@ -34,13 +34,13 @@ public struct MailAttachmentsModule: ScanModule {
                     "csv", "txt", "rtf",
                 ]
             ),
-            // Microsoft Outlook cached attachments
+
             ScanTarget(
                 path: MCConstants.userContainers
                     .appending(path: "com.microsoft.Outlook/Data/Library/Caches"),
                 recursive: true
             ),
-            // Spark mail cached attachments
+
             ScanTarget(
                 path: MCConstants.userContainers
                     .appending(path: "com.readdle.smartemail/Data/Library/Caches"),

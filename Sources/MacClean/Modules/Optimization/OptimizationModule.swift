@@ -4,7 +4,7 @@ import MacCleanKit
 
 public struct OptimizationModule: ScanModule {
     public let id = "optimization"
-    public var name: String { L10n.tr("优化", "Optimization", "Оптимизация") }
+    public var name: String { String(localized: "Optimization") }
     public let category = ModuleCategory.performance
 
     public init() {}
@@ -13,8 +13,6 @@ public struct OptimizationModule: ScanModule {
         []
     }
 }
-
-// MARK: - Unified Auto-Start Model
 
 public struct AutoStartItem: Identifiable, Sendable {
     public let id = UUID()
@@ -33,9 +31,9 @@ public struct AutoStartItem: Identifiable, Sendable {
 
         public var localizedName: String {
             switch self {
-            case .loginItem:    return L10n.tr("登录项", "Login Item", "Объект входа")
-            case .launchAgent:  return L10n.tr("启动代理", "Launch Agent", "Агент запуска")
-            case .launchDaemon: return L10n.tr("启动守护进程", "Launch Daemon", "Демон запуска")
+            case .loginItem:    return String(localized: "Login Item")
+            case .launchAgent:  return String(localized: "Launch Agent")
+            case .launchDaemon: return String(localized: "Launch Daemon")
             }
         }
     }
@@ -51,12 +49,8 @@ public struct AutoStartItem: Identifiable, Sendable {
     }
 }
 
-// MARK: - Unified Auto-Start Manager
-
 public final class AutoStartManager: @unchecked Sendable {
     public init() {}
-
-    // MARK: Public API
 
     public func getItems() -> [AutoStartItem] {
         var seen = Set<String>()
@@ -84,8 +78,6 @@ public final class AutoStartManager: @unchecked Sendable {
         scanPlistDir(MCConstants.systemLaunchDaemons, type: .launchDaemon, isSystem: true)
     }
 
-    // MARK: Toggle
-
     public enum ToggleError: Error {
         case systemItemReadOnly
         case unreadablePlist
@@ -102,8 +94,6 @@ public final class AutoStartManager: @unchecked Sendable {
         }
     }
 
-    // MARK: Open in Finder
-
     public func openConfigInFinder(_ item: AutoStartItem) {
         guard let path = item.configFilePath else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
@@ -114,12 +104,6 @@ public final class AutoStartManager: @unchecked Sendable {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
-    // MARK: - Login Items Acquisition
-
-    /// Read login items from System Settings → General → Login Items & Extensions
-    /// via System Events (AppleScript). This is the only reliable API on macOS 15+
-    /// — sfltool dumpbtm only returns system-level items (UID -2), and the old
-    /// backgrounditems.btm plist path no longer exists.
     private func loadLoginItemsViaSystemEvents() -> [AutoStartItem] {
         let script = """
         tell application "System Events"
@@ -155,7 +139,6 @@ public final class AutoStartManager: @unchecked Sendable {
         return parseOsascriptLoginItems(output)
     }
 
-    /// Maps the System Events records (see `LoginItemsOutput`) to rows.
     private func parseOsascriptLoginItems(_ output: String) -> [AutoStartItem] {
         var items: [AutoStartItem] = []
         for record in LoginItemsOutput.parse(output) {
@@ -192,8 +175,6 @@ public final class AutoStartManager: @unchecked Sendable {
     @available(*, deprecated, message: "sfltool dumpbtm only shows system-level items, not user login items")
     public func reloadLoginItemsViaSfltool() -> [AutoStartItem] { [] }
 
-    // MARK: - Launch Agents / Daemons Acquisition
-
     private func scanPlistDir(_ dir: URL, type: AutoStartItem.SourceType, isSystem: Bool) -> [AutoStartItem] {
         guard let contents = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
             return []
@@ -215,7 +196,6 @@ public final class AutoStartManager: @unchecked Sendable {
             }
             let disabled = plist["Disabled"] as? Bool ?? false
 
-            // Resolve a human-readable name
             let name: String
             if let progPath = program, let displayName = resolveAppNameFromPath(progPath) {
                 name = displayName
@@ -235,8 +215,6 @@ public final class AutoStartManager: @unchecked Sendable {
         }
         return items
     }
-
-    // MARK: - Helpers
 
     private func resolveAppName(bundleId: String, path: String?) -> String? {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
@@ -270,19 +248,15 @@ public final class AutoStartManager: @unchecked Sendable {
         return nil
     }
 
-    // MARK: - Toggle Implementations
-
     private func toggleLoginItem(bundleId: String, enabled: Bool) throws {
-        // Use AppleScript via System Events to add/remove the login item.
-        // This matches what System Settings → General → Login Items does.
+
         let script: String
         if enabled {
-            // When enabling, we need the app path. Look it up from bundle ID.
+
             guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
                 throw ToggleError.sfltoolFailed("Cannot find app for bundle ID: \(bundleId)")
             }
-            // Escape backslash and double-quote so a path like /Apps/foo".app
-            // cannot break out of the AppleScript string literal.
+
             let escapedPath = url.path
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
@@ -333,8 +307,6 @@ public final class AutoStartManager: @unchecked Sendable {
     }
 }
 
-// MARK: - Backward-compatible Wrappers
-
 public final class LoginItemsManager: @unchecked Sendable {
     public struct LoginItem: Identifiable, Sendable {
         public let id: UUID = UUID()
@@ -360,10 +332,7 @@ public final class LoginItemsManager: @unchecked Sendable {
     public init() {}
 
     public func getLoginItems() -> [LoginItem] {
-        // Old behaviour read LaunchAgents plists as "login items" — that was
-        // incorrect.  Redirect to the new unified manager which actually reads
-        // real macOS login items.  Launch agents are now under
-        // LaunchAgentsManager / the unified AutoStartManager.
+
         inner.getLoginItems().map { item in
             LoginItem(
                 name: item.name,
@@ -430,8 +399,6 @@ public final class LaunchAgentsManager: @unchecked Sendable {
         }
     }
 }
-
-// MARK: - Process Monitor
 
 public final class ProcessMonitor: @unchecked Sendable {
     public struct ProcessInfo: Identifiable, Sendable {

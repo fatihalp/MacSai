@@ -1,8 +1,5 @@
 import Foundation
 
-/// Information about a mounted volume. The data portion is pure (lives here);
-/// `mountedVolumes()` reads the actual filesystem and lives in the MacClean
-/// target via an extension.
 public struct VolumeInfo: Identifiable, Sendable, Equatable {
     public let id: UUID
     public let name: String

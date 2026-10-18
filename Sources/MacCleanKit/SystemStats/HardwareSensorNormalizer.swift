@@ -1,9 +1,5 @@
 import Foundation
 
-/// Converts registry sensor values into the units used by the menu-bar model.
-///
-/// Keeping this logic independent of IOKit makes the different hardware
-/// encodings deterministic and testable.
 public enum HardwareSensorNormalizer {
     public static let gpuUtilizationKeys = [
         "Device Utilization %",
@@ -16,7 +12,6 @@ public enum HardwareSensorNormalizer {
         "VirtualTemperature",
     ]
 
-    /// Returns the highest finite GPU utilization as a fraction in `0...1`.
     public static func gpuUsageFraction(from samples: [[String: NSNumber]]) -> Double? {
         var maximumPercent: Double?
 
@@ -32,7 +27,6 @@ public enum HardwareSensorNormalizer {
         return maximumPercent.map { $0 / 100 }
     }
 
-    /// Uses the first valid battery temperature exposed by the registry.
     public static func batteryTemperatureCelsius(
         from properties: [String: NSNumber]
     ) -> Double? {
@@ -46,7 +40,6 @@ public enum HardwareSensorNormalizer {
         return nil
     }
 
-    /// Normalizes known AppleSmartBattery encodings and rejects invalid values.
     public static func batteryTemperatureCelsius(fromRawValue rawValue: NSNumber) -> Double? {
         let raw = rawValue.doubleValue
         guard raw.isFinite else { return nil }

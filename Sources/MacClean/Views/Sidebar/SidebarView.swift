@@ -1,54 +1,35 @@
 import SwiftUI
+import AppKit
 import MacCleanKit
 
 public enum SidebarItem: String, CaseIterable, Identifiable {
-    // Main
-    case smartScan = "智能扫描"
-
-    // Cleanup
-    case systemJunk = "系统垃圾"
-    case mailAttachments = "邮件附件"
-    case trashBins = "废纸篓"
-
-    // Protection
-    case malwareRemoval = "恶意软件清理"
-    case privacy = "隐私清理"
-    case wifiNetworks = "已保存的 Wi-Fi"
-    case appPermissions = "权限总览"
-
-    // Performance
-    case optimization = "优化"
-    case maintenance = "维护"
-
-    // Applications
-    case uninstaller = "卸载器"
-    case unusedApps = "未使用的应用"
-    case extensions = "扩展"
-    case updater = "应用更新"
-
-    // Files
-    case spaceLens = "空间透视"
-    case largeOldFiles = "大文件与旧文件"
-    case duplicates = "重复文件"
-    case shredder = "文件粉碎"
-    case browserExtensions = "浏览器扩展"
-
-    // Cleanup, declared last so the ⌘1…⌘9 shortcuts above keep their digits
-    case diskHogs = "开发者磁盘占用"
-    // Listed under Cleanup (see `section`); declared last so it doesn't
-    // shift the Cmd+1...9 shortcuts of the items above.
-    case projectJunk = "项目垃圾"
-    // Cleanup (declared last so the ⌘1-⌘9 shortcuts, which follow
-    // declaration order, keep pointing at the same modules)
-    case cleanHistory = "清理历史"
-
-    // Footer (pinned below the list, not rendered in any section)
-    case settings = "设置"
+    case smartScan = "Smart Scan"
+    case systemJunk = "System Junk"
+    case mailAttachments = "Mail Attachments"
+    case trashBins = "Trash Bins"
+    case malwareRemoval = "Malware Removal"
+    case privacy = "Privacy"
+    case wifiNetworks = "Saved Wi-Fi"
+    case appPermissions = "Permissions"
+    case optimization = "Optimization"
+    case maintenance = "Maintenance"
+    case uninstaller = "Uninstaller"
+    case unusedApps = "Unused Apps"
+    case extensions = "Extensions"
+    case updater = "Updater"
+    case spaceLens = "Space Lens"
+    case largeOldFiles = "Large & Old Files"
+    case duplicates = "Duplicates"
+    case shredder = "Shredder"
+    case browserExtensions = "Browser Extensions"
+    case diskHogs = "Disk Hogs"
+    case projectJunk = "Project Junk"
+    case cleanHistory = "Clean History"
+    case settings = "Settings"
 
     public var id: String { rawValue }
-    public var title: String { L10n.tr(rawValue) }
+    public var title: String { String(localized: rawValue) }
 
-    /// Stable slug used in `macclean://module/<id>` deep links.
     public var deepLinkID: String {
         switch self {
         case .smartScan: "smart-scan"
@@ -85,27 +66,27 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
     public var icon: String {
         switch self {
         case .smartScan: "sparkle.magnifyingglass"
-        case .systemJunk: "trash.circle"
-        case .mailAttachments: "paperclip.circle"
-        case .trashBins: "trash"
-        case .malwareRemoval: "shield.lefthalf.filled"
-        case .privacy: "hand.raised.fill"
+        case .systemJunk: "trash"
+        case .mailAttachments: "paperclip"
+        case .trashBins: "trash.slash"
+        case .malwareRemoval: "shield"
+        case .privacy: "hand.raised"
         case .wifiNetworks: "wifi"
         case .appPermissions: "lock.shield"
         case .optimization: "gauge.with.dots.needle.67percent"
         case .maintenance: "wrench.and.screwdriver"
-        case .uninstaller: "xmark.app"
+        case .uninstaller: "Trash" == "" ? "xmark.app" : "xmark.app"
         case .extensions: "puzzlepiece.extension"
         case .updater: "arrow.triangle.2.circlepath"
         case .spaceLens: "chart.pie"
         case .largeOldFiles: "doc.richtext"
-        case .duplicates: "plus.square.on.square"
+        case .duplicates: "doc.on.doc"
         case .shredder: "scissors"
         case .browserExtensions: "puzzlepiece"
-        case .diskHogs: "externaldrive.badge.xmark"
+        case .diskHogs: "externaldrive"
         case .projectJunk: "shippingbox"
-        case .cleanHistory: "arrow.uturn.backward.circle"
-        case .unusedApps: "app.badge.checkmark"
+        case .cleanHistory: "clock.arrow.circlepath"
+        case .unusedApps: "app.badge"
         case .settings: "gearshape"
         }
     }
@@ -134,13 +115,10 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Modules jumpable via ⌘1…⌘9 (Settings excluded). Order matches
-    /// `CaseIterable` / sidebar listing.
     public static var keyboardShortcutItems: [SidebarItem] {
         Array(allCases.filter { $0 != .settings }.prefix(9))
     }
 
-    /// 1-based digit → sidebar item for ⌘1…⌘9. Returns nil out of range.
     public static func item(forShortcutDigit digit: Int) -> SidebarItem? {
         let items = keyboardShortcutItems
         guard digit >= 1, digit <= items.count else { return nil }
@@ -150,91 +128,57 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
 
 public enum SidebarSection: String, CaseIterable, Identifiable {
     case main = ""
-    case cleanup = "清理"
-    case protection = "防护"
-    case performance = "性能"
-    case applications = "应用"
-    case files = "文件"
+    case cleanup = "Cleanup"
+    case protection = "Protection"
+    case performance = "Performance"
+    case applications = "Applications"
+    case files = "Files"
 
     public var id: String { rawValue }
-    public var title: String { L10n.tr(rawValue) }
+    public var title: String { rawValue.isEmpty ? "" : String(localized: rawValue) }
 
     public var items: [SidebarItem] {
-        // .settings is pinned to the footer; it never renders inside a section.
         SidebarItem.allCases.filter { $0.section == self && $0 != .settings }
     }
 }
 
 public struct SidebarView: View {
     @Binding var selection: SidebarItem?
-    /// Sections the user has collapsed. Native `.sidebar` Sections only reveal
-    /// a collapse chevron on hover and don't fold on a title click, so we render
-    /// our own header rows with an always-visible chevron that fold on tap.
-    @State private var collapsedSections: Set<SidebarSection> = []
 
     public init(selection: Binding<SidebarItem?>) {
         self._selection = selection
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            List(selection: $selection) {
-                ForEach(SidebarSection.allCases) { section in
-                    if section == .main {
+        List(selection: $selection) {
+            ForEach(SidebarSection.allCases) { section in
+                if section == .main {
+                    ForEach(section.items) { item in
+                        sidebarRow(item)
+                    }
+                } else {
+                    Section(section.title) {
                         ForEach(section.items) { item in
                             sidebarRow(item)
-                        }
-                    } else {
-                        sectionHeader(section)
-                        if !collapsedSections.contains(section) {
-                            ForEach(section.items) { item in
-                                sidebarRow(item)
-                            }
                         }
                     }
                 }
             }
-            .listStyle(.sidebar)
-
-            Divider().opacity(0.4)
-
-            settingsFooter
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                Divider()
+                settingsFooter
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(
-            minWidth: AppLanguage.current.resolved == .de ? 250 : 180,
-            idealWidth: AppLanguage.current.resolved == .de ? 260 : 200
+            minWidth: Localization.currentCode == "de" ? 240 : 200,
+            idealWidth: Localization.currentCode == "de" ? 250 : 215
         )
     }
 
-    /// A collapsible section header: always-visible leading chevron + title;
-    /// the whole row folds/unfolds the section on tap. Not selectable (it isn't
-    /// a module), so clicking it never changes the detail pane.
-    private func sectionHeader(_ section: SidebarSection) -> some View {
-        let isCollapsed = collapsedSections.contains(section)
-        return HStack(spacing: 6) {
-            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-                .frame(width: 14)
-            Text(section.title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .padding(.top, 6)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                if isCollapsed { collapsedSections.remove(section) }
-                else { collapsedSections.insert(section) }
-            }
-        }
-        .selectionDisabled()
-        .listRowSeparator(.hidden)
-    }
-
-    /// Pinned footer: opens the in-app Settings page. Replaced the old
-    /// Menu Bar Widget toggle row; that toggle now lives inside Settings.
     private var settingsFooter: some View {
         Button {
             selection = .settings
@@ -242,37 +186,36 @@ public struct SidebarView: View {
             HStack(spacing: 8) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13))
-                    .foregroundStyle(selection == .settings ? Color.accentColor : Color.secondary)
-                Text(L10n.tr("设置", "Settings", "Настройки"))
-                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(selection == .settings ? Color(nsColor: .systemBlue) : Color.secondary)
+                Text("Settings")
+                    .font(.system(size: 13, weight: selection == .settings ? .medium : .regular))
                 Spacer()
-                // Version lives here (not in the title bar); kept in sync
-                // with VERSION by CI via check-version-sync.sh.
                 Text("v\(MCConstants.appVersion)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 7)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(selection == .settings ? Color.primary.opacity(0.10) : Color.clear)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(selection == .settings ? Color(nsColor: .systemBlue).opacity(0.12) : Color.clear)
         )
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .accessibilityLabel(L10n.tr("设置", "Settings", "Настройки"))
+        .accessibilityLabel(String(localized: "Settings"))
     }
 
     private func sidebarRow(_ item: SidebarItem) -> some View {
         Label {
             Text(item.title)
-                .fontWeight(item == .smartScan ? .semibold : .regular)
+                .font(.system(size: 13))
         } icon: {
             Image(systemName: item.icon)
-                .foregroundStyle(item.theme.accentColor)
+                .font(.system(size: 13))
+                .foregroundStyle(Color(nsColor: .systemBlue))
         }
         .tag(item)
     }

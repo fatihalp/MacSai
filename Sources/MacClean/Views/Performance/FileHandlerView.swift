@@ -7,12 +7,12 @@ struct FileHandlerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar: search + restore button
+
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
                     .font(.system(size: 12))
-                TextField(L10n.tr("搜索文件类型或应用...", "Search file type or app...", "Поиск по типу файла или приложению..."),
+                TextField(String(localized: "Search file type or app..."),
                           text: $viewModel.searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
@@ -33,13 +33,13 @@ struct FileHandlerView: View {
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.borderless)
-                .help(L10n.tr("版本历史", "Version history", "История версий"))
+                .help(String(localized: "Version history"))
                 Button(action: { viewModel.loadHandlers() }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.borderless)
-                .help(L10n.tr("刷新", "Refresh", "Обновить"))
+                .help(String(localized: "Refresh"))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -58,7 +58,7 @@ struct FileHandlerView: View {
                     Image(systemName: "doc.badge.gearshape")
                         .font(.system(size: 32))
                         .foregroundStyle(.tertiary)
-                    Text(L10n.tr("没有自定义的文件打开方式", "No custom file associations", "Нет пользовательских связей типов файлов"))
+                    Text("No custom file associations")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -69,7 +69,7 @@ struct FileHandlerView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 32))
                         .foregroundStyle(.tertiary)
-                    Text(L10n.tr("没有找到匹配的结果", "No matching results", "Совпадений не найдено"))
+                    Text("No matching results")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -90,20 +90,18 @@ struct FileHandlerView: View {
         .sheet(isPresented: $viewModel.showRestoreSheet) {
             restoreSheet
         }
-        .alert(L10n.tr("错误", "Error", "Ошибка"), isPresented: $viewModel.showError) {
+        .alert(String(localized: "Error"), isPresented: $viewModel.showError) {
             Button("OK") { viewModel.showError = false }
         } message: {
-            Text(viewModel.errorMessage ?? L10n.tr("发生未知错误", "An unknown error occurred", "Произошла неизвестная ошибка"))
+            Text(viewModel.errorMessage ?? String(localized: "An unknown error occurred"))
         }
         .onAppear { viewModel.loadHandlers() }
     }
 
-    // MARK: - Restore Sheet
-
     private var restoreSheet: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(L10n.tr("还原版本", "Restore Version", "Восстановить версию"))
+                Text("Restore Version")
                     .font(.headline)
                 Spacer()
                 Button(action: { viewModel.showRestoreSheet = false }) {
@@ -122,7 +120,7 @@ struct FileHandlerView: View {
                     Image(systemName: "clock.badge.questionmark")
                         .font(.system(size: 32))
                         .foregroundStyle(.tertiary)
-                    Text(L10n.tr("没有可用的备份", "No backups available", "Нет доступных резервных копий"))
+                    Text("No backups available")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -145,8 +143,6 @@ struct FileHandlerView: View {
     }
 }
 
-// MARK: - Backup Row
-
 private struct BackupRowView: View {
     let url: URL
     let isRestoring: Bool
@@ -166,7 +162,7 @@ private struct BackupRowView: View {
             }
             Spacer()
             Button(action: onRestore) {
-                Text(L10n.tr("还原", "Restore", "Восстановить"))
+                Text("Restore")
                     .font(.system(size: 12))
             }
             .buttonStyle(.bordered)
@@ -176,8 +172,7 @@ private struct BackupRowView: View {
     }
 
     private var formattedDate: String {
-        // Filename: launchservices-2026-06-26T11_12_26+08_00.plist
-        // Underscores were originally colons (filesystem-safe encoding).
+
         let isoStr = url.lastPathComponent
             .replacingOccurrences(of: "launchservices-", with: "")
             .replacingOccurrences(of: ".plist", with: "")
@@ -194,8 +189,6 @@ private struct BackupRowView: View {
     }
 }
 
-// MARK: - Row View
-
 private struct HandlerRowView: View {
     let handler: HandlerEntry
     let appInfo: (name: String, icon: NSImage)?
@@ -203,7 +196,7 @@ private struct HandlerRowView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // App Icon
+
             if let info = appInfo {
                 Image(nsImage: info.icon)
                     .resizable()
@@ -215,7 +208,6 @@ private struct HandlerRowView: View {
                     .frame(width: 28, height: 28)
             }
 
-            // File Type
             VStack(alignment: .leading, spacing: 2) {
                 Text(handler.fileTypeDescription)
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -226,7 +218,7 @@ private struct HandlerRowView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 } else if handler.urlScheme != nil {
-                    Text(L10n.tr("URL Scheme", "URL Scheme", "URL-схема"))
+                    Text("URL Scheme")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -234,7 +226,6 @@ private struct HandlerRowView: View {
 
             Spacer()
 
-            // App Name
             if let info = appInfo {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(info.name)
@@ -247,19 +238,18 @@ private struct HandlerRowView: View {
                     }
                 }
             } else {
-                Text(L10n.tr("未知应用", "Unknown app", "Неизвестное приложение"))
+                Text("Unknown app")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
 
-            // Delete button
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .font(.system(size: 11))
                     .foregroundStyle(.red)
             }
             .buttonStyle(.borderless)
-            .help(L10n.tr("删除此关联（自动备份当前版本）", "Remove (auto-backup created)", "Удалить связь (резервная копия создастся автоматически)"))
+            .help(String(localized: "Remove (auto-backup created)"))
         }
         .padding(.vertical, 2)
     }

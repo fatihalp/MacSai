@@ -1,11 +1,5 @@
 import Foundation
 
-/// Runs a command with a time budget, terminating it on timeout or when the
-/// calling task is cancelled.
-///
-/// Both pipes are drained while the process runs: waiting for exit before
-/// reading deadlocks once output passes the ~64KB pipe buffer, because the
-/// child blocks writing while we block waiting.
 public enum BoundedProcess {
     public enum Outcome: Equatable, Sendable {
         case exited(status: Int32, stdout: Data, stderr: Data)
@@ -101,8 +95,6 @@ public extension BoundedProcess.Outcome {
         return Data()
     }
 
-    /// First non-empty stderr line (or stdout when stderr is empty), for a
-    /// short failure detail. Empty for timeouts and cancellations.
     var failureDetail: String {
         switch self {
         case .exited(_, let stdout, let stderr):

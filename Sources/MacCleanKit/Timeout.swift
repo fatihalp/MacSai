@@ -1,26 +1,10 @@
 import Foundation
 import os
 
-/// Thrown by ``withTimeout(_:_:)`` when the operation outlives its budget.
 public struct TimeoutError: Error, Equatable {
     public init() {}
 }
 
-/// Run `operation`, returning its result, or throw ``TimeoutError`` if it does
-/// not finish within `duration`.
-///
-/// IMPORTANT: Swift task cancellation is cooperative. If `operation` is blocked
-/// inside a non-cancellable C/syscall (the exact failure this guards against in
-/// the menu-bar stats loop), the underlying work keeps running on its executor
-/// until it returns; this function only stops *waiting* on it. So this is a
-/// safety net that keeps the UI responsive, not a way to kill a hung syscall.
-/// Callers must still ensure the operation is fundamentally non-blocking (e.g.
-/// use `statfs` rather than the purgeable-space disk key) so a wedged call can't
-/// pile up behind a serial actor.
-///
-/// The operation and the clock run as unstructured tasks racing to resume one
-/// continuation. A task group can't be used here: it doesn't return until every
-/// child has finished, so a wedged operation would hold the caller hostage.
 public func withTimeout<T: Sendable>(
     _ duration: Duration,
     _ operation: @escaping @Sendable () async throws -> T
@@ -46,8 +30,6 @@ public func withTimeout<T: Sendable>(
     }
 }
 
-/// Resumes the continuation exactly once with whichever outcome arrives first,
-/// then cancels both racing tasks.
 private final class TimeoutRace<T: Sendable>: Sendable {
     private struct State {
         var continuation: CheckedContinuation<T, Error>?

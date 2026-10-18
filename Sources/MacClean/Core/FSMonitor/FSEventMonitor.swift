@@ -30,8 +30,6 @@ public final class FSEventMonitor: @unchecked Sendable {
         FSEventsGetCurrentEventId()
     }
 
-    // MARK: - Start monitoring (live)
-
     public func startMonitoring(paths: [String], since: UInt64 = FSEventStreamEventId(kFSEventStreamEventIdSinceNow), handler: @escaping ([FSChange]) -> Void) {
         stop()
         changeHandler = handler
@@ -47,7 +45,7 @@ public final class FSEventMonitor: @unchecked Sendable {
             &context,
             cfPaths,
             since,
-            0.5, // latency: coalesce events within 500ms
+            0.5,
             UInt32(
                 kFSEventStreamCreateFlagFileEvents |
                 kFSEventStreamCreateFlagUseCFTypes |
@@ -60,10 +58,7 @@ public final class FSEventMonitor: @unchecked Sendable {
         FSEventStreamStart(stream)
     }
 
-    // MARK: - Get changes since event ID (for incremental scanning)
-
     public func getChangesSince(eventID: UInt64, paths: [String]) -> [FSChange] {
-        var collected: [FSChange] = []
         let semaphore = DispatchSemaphore(value: 0)
 
         var context = FSEventStreamContext()
@@ -85,24 +80,23 @@ public final class FSEventMonitor: @unchecked Sendable {
             )
         ) else { return [] }
 
+        box.stream = stream
         let historyQueue = DispatchQueue(label: "com.macclean.fshistory")
         FSEventStreamSetDispatchQueue(stream, historyQueue)
         FSEventStreamStart(stream)
 
-        // Give it a moment to replay events then stop
         historyQueue.asyncAfter(deadline: .now() + 1.0) {
-            FSEventStreamStop(stream)
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
-            collected = box.changes
+            if let s = box.stream {
+                FSEventStreamStop(s)
+                FSEventStreamInvalidate(s)
+                FSEventStreamRelease(s)
+            }
             semaphore.signal()
         }
 
         semaphore.wait()
-        return collected
+        return box.changes
     }
-
-    // MARK: - Compute invalidated paths
 
     public func invalidatedPaths(changes: [FSChange]) -> Set<String> {
         var paths = Set<String>()
@@ -110,15 +104,13 @@ public final class FSEventMonitor: @unchecked Sendable {
             if change.mustRescanDir {
                 paths.insert(change.path)
             } else if change.isCreated || change.isRemoved || change.isModified || change.isRenamed {
-                // Invalidate the parent directory
+
                 let url = URL(filePath: change.path)
                 paths.insert(url.deletingLastPathComponent().path(percentEncoded: false))
             }
         }
         return paths
     }
-
-    // MARK: - Stop
 
     public func stop() {
         if let stream {
@@ -130,12 +122,11 @@ public final class FSEventMonitor: @unchecked Sendable {
     }
 }
 
-// Box to collect changes from the historical callback
 private final class ChangesBox: @unchecked Sendable {
     var changes: [FSEventMonitor.FSChange] = []
+    var stream: FSEventStreamRef?
 }
 
-// Live monitoring callback
 private func fsEventCallback(
     stream: ConstFSEventStreamRef,
     clientInfo: UnsafeMutableRawPointer?,
@@ -161,7 +152,6 @@ private func fsEventCallback(
     monitor.changeHandler?(changes)
 }
 
-// Historical replay callback
 private func historicalCallback(
     stream: ConstFSEventStreamRef,
     clientInfo: UnsafeMutableRawPointer?,

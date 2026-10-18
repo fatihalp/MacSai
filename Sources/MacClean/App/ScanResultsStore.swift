@@ -1,10 +1,6 @@
 import Foundation
 import MacCleanKit
 
-/// Caches each module's last scan so navigating away and back doesn't lose
-/// it (#21.3). Keyed by SidebarItem. Module views read/write this instead of
-/// relying solely on local @State, which is discarded when ContentView
-/// recreates the view on selection change.
 @Observable
 public final class ScanResultsStore {
     public struct Entry {

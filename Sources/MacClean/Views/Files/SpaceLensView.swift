@@ -2,9 +2,6 @@ import SwiftUI
 import Combine
 import MacCleanKit
 
-/// Live item counter for the Space Lens scan, so the UI can show real movement
-/// instead of a fixed 50%. Kept as a MainActor reference type (Sendable) so the
-/// scanner's `@Sendable` progress callback can update it safely.
 @MainActor
 private final class SpaceLensScanProgress: ObservableObject {
     @Published var itemsScanned = 0
@@ -40,11 +37,11 @@ struct SpaceLensView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(L10n.tr("空间透视", "Space Lens", "Карта диска"))
+                Text("Space Lens")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
-                    Text(L10n.tr("可视化磁盘空间使用情况", "Visualize disk space usage", "Визуализация использования дискового пространства"))
+                    Text("Visualize disk space usage")
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
                     if !totalFormattedSize.isEmpty {
@@ -58,11 +55,10 @@ struct SpaceLensView: View {
             }
             Spacer()
             if !isScanning {
-                Button(L10n.tr("扫描", "Scan", "Сканировать")) { startScan() }
-                    .buttonStyle(SuperEllipseButtonStyle(
-                        gradient: ModuleTheme.files.buttonGradient,
-                        size: CGSize(width: 90, height: 34)
-                    ))
+                Button(String(localized: "Scan")) { startScan() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(nsColor: .systemBlue))
+                    .controlSize(.regular)
             }
         }
         .padding(.horizontal, 24)
@@ -77,11 +73,11 @@ struct SpaceLensView: View {
                         Button { nav.up(); startScan() } label: { Image(systemName: "chevron.up") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
                             .disabled(!nav.canGoUp)
-                            .help(L10n.tr("上一级", "Up one level", "На уровень выше"))
+                            .help(String(localized: "Up one level"))
                         Button { nav.home(); startScan() } label: { Image(systemName: "house") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
                             .disabled(!nav.canGoUp)
-                            .help(L10n.tr("返回起点", "Back to start", "Вернуться в начало"))
+                            .help(String(localized: "Back to start"))
 
                         ForEach(nav.breadcrumbs, id: \.self) { url in
                             Button(url.lastPathComponent) {
@@ -114,19 +110,15 @@ struct SpaceLensView: View {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.primary)
-                Text(L10n.tr("正在扫描磁盘…", "Scanning disk…", "Сканирование диска…"))
+                Text("Scanning disk…")
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.7))
                 if scanProgress.itemsScanned > 0 {
-                    Text(L10n.tr(
-                        "已扫描 \(scanProgress.itemsScanned.formatted()) 个项目",
-                        "\(scanProgress.itemsScanned.formatted()) items scanned",
-                        "Просканировано: \(scanProgress.itemsScanned.formatted())"
-                    ))
+                    Text("\(scanProgress.itemsScanned.formatted()) items scanned")
                     .font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(.secondary)
                 }
-                Button(L10n.tr("取消", "Cancel", "Отмена")) {
+                Button(String(localized: "Cancel")) {
                     scanTask?.cancel()
                     nav.cancelPendingNavigation()
                     isScanning = false
@@ -149,7 +141,7 @@ struct SpaceLensView: View {
                 Image(systemName: "chart.pie")
                     .font(.system(size: 44))
                     .foregroundStyle(.primary.opacity(0.4))
-                Text(L10n.tr("点击“扫描”以可视化磁盘使用情况", "Click Scan to visualize disk usage", "Нажмите «Сканировать», чтобы увидеть распределение места на диске"))
+                Text("Click Scan to visualize disk usage")
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.55))
             }
@@ -246,9 +238,7 @@ struct SpaceLensView: View {
         let root = nav.current
         let progress = scanProgress
         scanTask = Task {
-            // Size only the immediate children (all the treemap shows), each
-            // aggregated into one running total. Flat memory, so a full home
-            // folder can no longer swap and appear to hang (issue #184).
+
             let children = await scanner.topLevelSizes(root: root) { count in
                 Task { @MainActor in progress.itemsScanned = count }
             }

@@ -5,10 +5,7 @@ public struct CleanHistoryItem: Equatable, Codable, Sendable, Identifiable {
     public let originalPath: String
     public let trashPath: String
     public let bytes: UInt64
-    /// Inode of the item at `trashPath` right after it was trashed. macOS
-    /// reuses a Trash name once the first item is gone, so without this an old
-    /// session could "restore" a different, later-trashed file into the old
-    /// location. Entries without it are never restored.
+
     public let trashFileID: UInt64?
 
     public init(id: UUID, originalPath: String, trashPath: String, bytes: UInt64, trashFileID: UInt64? = nil) {
@@ -24,9 +21,7 @@ public struct CleanHistorySession: Equatable, Codable, Sendable, Identifiable {
     public let id: UUID
     public let date: Date
     public let items: [CleanHistoryItem]
-    /// Items the clean trashed beyond `CleanHistoryStore.maxItemsPerSession`.
-    /// They are still in the Trash but Restore can't put them back, and the
-    /// UI says so instead of offering a silently partial restore.
+
     public let omittedCount: Int?
 
     public init(id: UUID, date: Date, items: [CleanHistoryItem], omittedCount: Int? = nil) {
@@ -47,9 +42,7 @@ public enum CleanHistoryRestoreAction: Equatable, Sendable {
     case restore(fromTrash: String, to: String)
     case skippedEmptied(originalPath: String)
     case skippedReappeared(originalPath: String)
-    /// The entry failed validation: the Trash path is not inside a Trash, a
-    /// different file now holds that Trash name, or the destination is not a
-    /// normal place to put a file back.
+
     case skippedUnsafe(originalPath: String)
 }
 
@@ -57,9 +50,9 @@ public struct CleanHistoryRestoreSummary: Equatable, Sendable {
     public var restored = 0
     public var emptied = 0
     public var reappeared = 0
-    /// Unsafe entries plus moves that failed at the filesystem level.
+
     public var failed = 0
-    /// Items that were actually put back, so the caller can drop them.
+
     public var restoredItemIDs: Set<UUID> = []
 
     public init() {}
@@ -84,10 +77,6 @@ public enum CleanHistoryRestore {
         return .restore(fromTrash: item.trashPath, to: item.originalPath)
     }
 
-    /// True when `path` is an item inside the user's Trash (`trashRoot`) or a
-    /// volume Trash (`/Volumes/<name>/.Trashes/<uid>/...`). Anything else, or
-    /// a path with `..`, is rejected, so a corrupted or edited history file
-    /// can never turn Restore into "move any file anywhere".
     public static func isInsideTrash(_ path: String, trashRoot: String, uid: UInt32) -> Bool {
         guard isNormalizedAbsolute(path) else { return false }
         let root = trashRoot.hasSuffix("/") ? trashRoot : trashRoot + "/"
@@ -97,8 +86,6 @@ public enum CleanHistoryRestore {
             && parts[3] == ".Trashes" && parts[4] == String(uid)
     }
 
-    /// True when `path` is a plausible place to put an item back: absolute,
-    /// already normalized, and not itself inside a Trash.
     public static func isRestorableDestination(_ path: String, trashRoot: String, uid: UInt32) -> Bool {
         isNormalizedAbsolute(path) && !isInsideTrash(path, trashRoot: trashRoot, uid: uid)
     }
@@ -122,7 +109,6 @@ public enum CleanHistoryStore {
         pruned([session] + existing, now: now)
     }
 
-    /// Newest first, nothing older than `maxAge`, at most `maxSessions`.
     public static func pruned(_ sessions: [CleanHistorySession], now: Date = Date()) -> [CleanHistorySession] {
         let cutoff = now.addingTimeInterval(-maxAge)
         return sessions
@@ -132,8 +118,6 @@ public enum CleanHistoryStore {
             .map { $0 }
     }
 
-    /// Drops restored items, and sessions left with nothing to restore, so a
-    /// session can't be restored twice.
     public static func removing(
         itemIDs: Set<UUID>,
         from sessions: [CleanHistorySession]

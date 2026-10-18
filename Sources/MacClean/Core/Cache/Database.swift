@@ -78,8 +78,6 @@ public final class AppDatabase: Sendable {
         try migrator.migrate(dbPool)
     }
 
-    // MARK: - Scan Operations
-
     public func createScan(rootPath: String, moduleID: String) throws -> Int64 {
         try dbPool.write { db in
             try db.execute(
@@ -110,8 +108,6 @@ public final class AppDatabase: Sendable {
             return (row["id"], UInt64(row["fsEventID"] as Int64))
         }
     }
-
-    // MARK: - File Cache Operations
 
     public func cacheFiles(_ files: [CachedFileRecord], scanID: Int64) throws {
         try dbPool.write { db in
@@ -168,8 +164,6 @@ public final class AppDatabase: Sendable {
         }
     }
 
-    // MARK: - App Cache Operations
-
     public func cacheApp(_ app: AppInfo) throws {
         try dbPool.write { db in
             try db.execute(
@@ -201,8 +195,6 @@ public final class AppDatabase: Sendable {
         }
     }
 }
-
-// MARK: - Cached File Record
 
 public struct CachedFileRecord: Sendable {
     public let path: String

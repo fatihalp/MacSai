@@ -1,11 +1,5 @@
 import Foundation
 
-/// When the post-clean "support Mac Sai" card may appear. It is deliberately
-/// rare so it never turns into a nag screen: only after a clean that freed a
-/// real amount of space, never on the very first clean (the user is still
-/// deciding whether to trust the app), at most once per cooldown window, and
-/// never again once the user opts out or follows the link. Everything is a
-/// local `UserDefaults` value; nothing is sent anywhere.
 public enum SupportPrompt {
     public static let minFreedBytes: UInt64 = 1_000_000_000
     public static let minCleanCount = 2
@@ -16,7 +10,7 @@ public enum SupportPrompt {
     static let optedOutKey = "supportPrompt.optedOut"
 
     public struct State: Equatable, Sendable {
-        /// Successful cleans so far, including the one being evaluated.
+
         public var cleanCount: Int
         public var lastShown: Date?
         public var optedOut: Bool
@@ -44,9 +38,6 @@ public enum SupportPrompt {
         )
     }
 
-    /// Records a successful clean and returns whether to show the card for it.
-    /// Showing starts the cooldown immediately, so "Maybe later" needs no
-    /// extra bookkeeping.
     public static func registerClean(
         freedBytes: UInt64,
         now: Date = Date(),
@@ -60,10 +51,6 @@ public enum SupportPrompt {
         return true
     }
 
-    /// Called once when a clean finishes. Only a clean that actually removed
-    /// something counts; empty selections and all-failed runs are ignored.
-    /// Lives here (not in a view's `onAppear`) so the decision is made exactly
-    /// once per clean, at a point the views can't skip.
     public static func registerCompletion(
         _ summary: CleanSummary,
         now: Date = Date(),
@@ -73,16 +60,11 @@ public enum SupportPrompt {
         return registerClean(freedBytes: summary.freedBytes, now: now, defaults: defaults)
     }
 
-    /// "Don't ask again", or the user followed the link: never show it again.
     public static func optOut(defaults: UserDefaults = .standard) {
         defaults.set(true, forKey: optedOutKey)
     }
 }
 
-/// Remembers the support-card decision for each clean. Done screens can call
-/// `shouldAsk(for:)` straight from `body`: the first call registers the clean,
-/// later calls (re-renders, a rebuilt container) return the same answer and
-/// never count the clean twice.
 @MainActor
 public final class SupportAskLedger {
     public static let shared = SupportAskLedger()

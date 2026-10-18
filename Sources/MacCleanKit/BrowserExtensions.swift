@@ -21,9 +21,6 @@ public enum BrowserKind: String, Equatable, Sendable, CaseIterable, Identifiable
         }
     }
 
-    /// Every bundle ID that can hold this browser's profiles open. Firefox
-    /// Beta, Developer Edition, and Nightly all share the Firefox profiles
-    /// folder, so any of them running blocks a Firefox delete.
     public var bundleIdentifiers: Set<String> {
         switch self {
         case .safari: ["com.apple.Safari"]
@@ -40,7 +37,6 @@ public enum BrowserKind: String, Equatable, Sendable, CaseIterable, Identifiable
         }
     }
 
-    /// The app to bring forward when removal has to happen in the browser.
     public var primaryBundleIdentifier: String {
         switch self {
         case .safari: "com.apple.Safari"
@@ -52,8 +48,6 @@ public enum BrowserKind: String, Equatable, Sendable, CaseIterable, Identifiable
         }
     }
 
-    /// User data folder under `~/Library/Application Support` for the
-    /// Chromium family. nil for Safari and Firefox.
     public var chromiumUserDataRelativePath: String? {
         switch self {
         case .chrome: "Google/Chrome"
@@ -67,35 +61,31 @@ public enum BrowserKind: String, Equatable, Sendable, CaseIterable, Identifiable
     public static let chromiumFamily: [BrowserKind] = [.chrome, .brave, .edge, .arc]
 }
 
-/// Why an extension can or cannot be moved to the Trash by Mac Sai.
 public enum BrowserExtensionOrigin: String, Equatable, Hashable, Sendable {
-    /// Installed by the user; the folder may be trashed while the browser is closed.
+
     case user
-    /// Force-installed by an admin or configuration profile. Deleting the
-    /// folder is pointless: the browser reinstalls it on next launch.
+
     case policy
-    /// Ships with the browser itself.
+
     case component
-    /// Safari extensions live inside App Store apps; macOS manages them.
+
     case safariApp
 }
 
 public struct BrowserExtensionRecord: Equatable, Hashable, Sendable, Identifiable {
-    /// Browser + profile + extension, so the same extension in two Chrome
-    /// profiles is two distinct rows.
+
     public var id: String { "\(browser.rawValue)|\(profile)|\(identifier)" }
 
     public let browser: BrowserKind
-    /// Profile folder name ("Default", "Profile 1", "abcd.default-release").
-    /// Empty for Safari.
+
     public let profile: String
     public let identifier: String
     public let name: String
-    /// Last time the extension folder changed (install or update).
+
     public let updatedAt: Date?
     public let path: String
     public let origin: BrowserExtensionOrigin
-    /// Name matches a known adware family pattern. A hint, not a verdict.
+
     public let isSuspicious: Bool
 
     public init(
@@ -119,9 +109,6 @@ public struct BrowserExtensionRecord: Equatable, Hashable, Sendable, Identifiabl
     }
 }
 
-/// Chrome-family extension IDs known to ship adware or data harvesting.
-/// Empty until someone adds IDs with a cited write-up; the name check in
-/// `MalwareSignatures` is what flags extensions today.
 public enum MaliciousExtensionIDs {
     public static let known: Set<String> = []
 
@@ -132,8 +119,7 @@ public enum MaliciousExtensionIDs {
 
 public struct BrowserExtensionScan: Equatable, Sendable {
     public let records: [BrowserExtensionRecord]
-    /// False when macOS's extension registry (pluginkit) could not be read,
-    /// so an empty Safari section must not read as "nothing installed".
+
     public let safariListed: Bool
 
     public init(records: [BrowserExtensionRecord], safariListed: Bool) {
@@ -154,13 +140,13 @@ public enum BrowserExtensionSuspicion {
 }
 
 public enum BrowserExtensionRemovalPlan: Equatable, Sendable {
-    /// The browser is open; nothing is deleted, the user removes it there.
+
     case removeInBrowser(BrowserKind)
     case deleteFolder(String)
     case managedByPolicy(BrowserKind)
     case builtIn(BrowserKind)
     case safariSettings
-    /// The path failed validation; refuse rather than guess.
+
     case refuse
 }
 
@@ -181,8 +167,6 @@ public enum BrowserExtensionRemoval {
         return .deleteFolder(record.path)
     }
 
-    /// Only `<profile>/Extensions/<32 a-p id>` (Chromium) or a direct child
-    /// of `<profile>/extensions/` (Firefox) may ever be trashed.
     public static func isSafeDeletionPath(_ record: BrowserExtensionRecord) -> Bool {
         let path = URL(filePath: record.path).standardizedFileURL
         let components = path.pathComponents
@@ -205,14 +189,14 @@ public enum BrowserExtensionRemoval {
 }
 
 public enum ChromiumExtensionID {
-    /// Chromium IDs are 32 characters from a to p.
+
     public static func isValid(_ id: String) -> Bool {
         id.count == 32 && id.unicodeScalars.allSatisfy { $0.value >= 97 && $0.value <= 112 }
     }
 }
 
 public enum ChromiumVersionFolder {
-    /// Picks the newest version folder ("1.10.0_0" beats "1.9.0_0").
+
     public static func newest(_ names: [String]) -> String? {
         names.max { isOrderedBefore($0, $1) }
     }
@@ -232,11 +216,9 @@ public enum ChromiumVersionFolder {
     }
 }
 
-/// Reads `extensions.settings.<id>.location` from Chromium's Preferences and
-/// Secure Preferences. Values come from Chromium's `ManifestLocation` enum.
 public enum ChromiumPreferences {
-    public static let componentLocations: Set<Int> = [5, 10]   // kComponent, kExternalComponent
-    public static let policyLocations: Set<Int> = [7, 9]       // kExternalPolicyDownload, kExternalPolicy
+    public static let componentLocations: Set<Int> = [5, 10]
+    public static let policyLocations: Set<Int> = [7, 9]
 
     public static func locations(fromPreferencesJSON data: Data) -> [String: Int] {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -252,7 +234,6 @@ public enum ChromiumPreferences {
         return result
     }
 
-    /// IDs from an `ExtensionInstallForcelist` policy ("id" or "id;update_url").
     public static func forcedIDs(fromPolicyPlist plist: [String: Any]) -> Set<String> {
         guard let list = plist["ExtensionInstallForcelist"] as? [String] else { return [] }
         return Set(list.compactMap { entry in
@@ -270,9 +251,7 @@ public enum ChromiumPreferences {
 }
 
 public enum BrowserExtensionManifest {
-    /// Resolves a Chromium manifest into a record. `messages` loads
-    /// `_locales/<locale>/messages.json`; the manifest's `default_locale` is
-    /// tried first, then English, then the folder ID is used as the name.
+
     public static func chromeFamily(
         json: Data,
         extensionID: String,
@@ -345,9 +324,7 @@ public enum BrowserExtensionManifest {
         let extensionsDir = profileURL.appending(path: "extensions").standardizedFileURL
         return payload.addons.compactMap { addon in
             guard (addon.type ?? "extension") == "extension" else { return nil }
-            // Only user-installed profile add-ons. Built-in, system, and
-            // temporary add-ons point into Firefox.app or a developer's
-            // source folder, which must never be trashed.
+
             guard addon.location == "app-profile", let rawPath = addon.path,
                   !rawPath.split(separator: "/").contains("..")
             else { return nil }
@@ -372,12 +349,9 @@ public enum BrowserExtensionManifest {
         }
     }
 
-    /// Third-party Safari extensions from the shared `ManagedExtension`
-    /// catalog (app extensions found in apps plus pluginkit).
     public static func safari(_ items: [ManagedExtension], updatedAt: (URL) -> Date? = { _ in nil }) -> [BrowserExtensionRecord] {
         items
-            // Modern Safari extensions are app extensions; legacy .safariextz
-            // files in ~/Library/Safari no longer load.
+
             .filter { $0.kind == .safariExtension && !$0.isApple && $0.path.pathExtension.lowercased() == "appex" }
             .map { item in
                 BrowserExtensionRecord(
@@ -396,8 +370,7 @@ public enum BrowserExtensionManifest {
     private static func localizedMessage(key: String, from data: Data) -> String? {
         struct Entry: Decodable { let message: String? }
         guard let dict = try? JSONDecoder().decode([String: Entry].self, from: data) else { return nil }
-        // Chrome message keys are case-insensitive: real files use "extname"
-        // for "__MSG_extName__".
+
         if let exact = dict[key]?.message { return exact }
         return dict.first { $0.key.caseInsensitiveCompare(key) == .orderedSame }?.value.message
     }

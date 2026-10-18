@@ -5,7 +5,6 @@ import MacCleanKit
 public struct BrowserExtensionsClient: Sendable {
     public init() {}
 
-    /// What happened after the user asked to remove an extension.
     public enum RemovalOutcome: Equatable, Sendable {
         case trashed
         case removeInBrowser(BrowserKind)
@@ -55,8 +54,7 @@ public struct BrowserExtensionsClient: Sendable {
             await Self.bringForward(browser)
             return .removeInBrowser(browser)
         case .deleteFolder(let path):
-            // Re-check right before touching disk: the browser may have been
-            // launched while the confirmation was up.
+
             if await Self.browserIsRunning(record) {
                 await Self.bringForward(record.browser)
                 return .removeInBrowser(record.browser)
@@ -70,10 +68,6 @@ public struct BrowserExtensionsClient: Sendable {
         }
     }
 
-    // MARK: - Running check
-
-    /// Running if any of the browser's apps is open OR its profile lock is
-    /// held. Either one blocks deletion.
     private static func browserIsRunning(_ record: BrowserExtensionRecord) async -> Bool {
         let ids = record.browser.bundleIdentifiers
         let appRunning = await MainActor.run {
@@ -102,8 +96,6 @@ public struct BrowserExtensionsClient: Sendable {
         ) else { return }
         _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: .init())
     }
-
-    // MARK: - Chromium
 
     private static func chromeFamily(browser: BrowserKind) -> [BrowserExtensionRecord] {
         guard let relative = browser.chromiumUserDataRelativePath else { return [] }
@@ -163,8 +155,6 @@ public struct BrowserExtensionsClient: Sendable {
         return records
     }
 
-    /// Merges `location` values from Preferences and Secure Preferences
-    /// (Chrome on macOS keeps most extension settings in the latter).
     private static func preferenceLocations(in profile: URL) -> [String: Int] {
         var merged: [String: Int] = [:]
         for file in ["Preferences", "Secure Preferences"] {
@@ -174,8 +164,6 @@ public struct BrowserExtensionsClient: Sendable {
         return merged
     }
 
-    /// `ExtensionInstallForcelist` from managed (MDM or configuration
-    /// profile) preferences, the usual way adware pins an extension.
     private static func forcedExtensionIDs(for browser: BrowserKind) -> Set<String> {
         let domain: String
         switch browser {
@@ -200,8 +188,6 @@ public struct BrowserExtensionsClient: Sendable {
         return ids
     }
 
-    // MARK: - Firefox
-
     private static var firefoxProfilesRoot: URL {
         MCConstants.userAppSupport.appending(path: "Firefox/Profiles")
     }
@@ -224,10 +210,6 @@ public struct BrowserExtensionsClient: Sendable {
         return records
     }
 
-    // MARK: - Safari
-
-    /// Reuses the Extensions module's catalog: Safari app extensions found
-    /// inside installed apps, with pluginkit's enabled/disabled overlay.
     private static func safari(pluginKitOutput: String) async -> [BrowserExtensionRecord] {
         var client = ManagedExtensionsClient.live()
         client.pluginKitOutput = { pluginKitOutput }

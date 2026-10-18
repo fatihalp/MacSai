@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import MacCleanKit
 
 @MainActor @Observable
@@ -19,25 +20,16 @@ final class SystemJunkViewModel {
     var selectedItems: Set<URL> = [] {
         didSet { recomputeSelectedSize() }
     }
+    var review: ReviewSelection?
     var filesFound: Int = 0
-    var scanPhase: String = L10n.tr("正在扫描...", "Scanning...", "Сканирование...")
-    /// Held so the View's Cancel button can stop an in-flight cleanup.
+    var scanPhase: String = String(localized: "Scanning...")
+
     private var cleanTask: Task<Void, Never>?
 
     private let module = SystemJunkModule()
 
-    /// Cached total bytes of the current selection. The results view reads this
-    /// on every body pass, and SwiftUI re-evaluates that body during the layout
-    /// pass on every sidebar switch, so it MUST be O(1) to read. It used to be
-    /// an O(n) computed property that flat-mapped every item into a fresh array
-    /// each call; once a scan listed 100k+ items that froze the main thread for
-    /// seconds on each switch (confirmed by a sample: ~46% of main-thread time
-    /// was in this getter under NSHostingView.layout). Recomputed only when
-    /// `results` or `selectedItems` actually change.
     private(set) var totalSelectedSize: UInt64 = 0
 
-    /// url -> size index, rebuilt when `results` change, so recomputing the
-    /// selected total is O(selected) rather than O(all items).
     private var sizeByURL: [URL: UInt64] = [:]
 
     private func rebuildSizeIndex() {
@@ -56,11 +48,28 @@ final class SystemJunkViewModel {
     }
 
     var selectedCount: Int {
-        selectedItems.count
+        if let review, !review.data.items.isEmpty {
+            return review.selectedCount
+        }
+        return selectedItems.count
+    }
+
+    var currentSelectedSize: UInt64 {
+        if let review, !review.data.items.isEmpty {
+            return review.selectedSize
+        }
+        return totalSelectedSize
     }
 
     var totalFileCount: Int {
         results.reduce(0) { $0 + $1.fileCount }
+    }
+
+    func exportedSelectedURLs() -> Set<URL> {
+        if let review, !review.data.items.isEmpty {
+            return review.data.selectedURLs(flags: review.snapshot())
+        }
+        return selectedItems
     }
 
     func startScan() {
@@ -68,48 +77,58 @@ final class SystemJunkViewModel {
         filesFound = 0
         results = []
         selectedItems = []
-        scanPhase = L10n.tr("正在扫描缓存...", "Scanning caches...", "Сканирование кэшей...")
+        review = nil
+        scanPhase = String(localized: "Scanning caches...")
 
         Task {
             let scanStart = Date()
 
             state = .scanning(progress: 0.1)
-            scanPhase = L10n.tr("正在扫描用户缓存...", "Scanning user caches...", "Сканирование пользовательских кэшей...")
+            scanPhase = String(localized: "Scanning user caches...")
             try? await Task.sleep(for: .milliseconds(300))
 
-            scanPhase = L10n.tr("正在扫描系统日志...", "Scanning system logs...", "Сканирование системных журналов...")
+            scanPhase = String(localized: "Scanning system logs...")
             state = .scanning(progress: 0.25)
 
             async let scanTask = module.scan()
 
             try? await Task.sleep(for: .milliseconds(400))
-            scanPhase = L10n.tr("正在检查语言文件...", "Checking language files...", "Проверка файлов локализации...")
+            scanPhase = String(localized: "Checking language files...")
             state = .scanning(progress: 0.4)
 
             try? await Task.sleep(for: .milliseconds(300))
-            scanPhase = L10n.tr("正在检查偏好设置...", "Inspecting preferences...", "Проверка настроек...")
+            scanPhase = String(localized: "Inspecting preferences...")
             state = .scanning(progress: 0.55)
 
             try? await Task.sleep(for: .milliseconds(300))
-            scanPhase = L10n.tr("正在检查登录项...", "Checking login items...", "Проверка объектов входа...")
+            scanPhase = String(localized: "Checking login items...")
             state = .scanning(progress: 0.7)
 
             let scanResults = await scanTask
 
-            scanPhase = L10n.tr("正在分析结果...", "Analyzing results...", "Анализ результатов...")
+            scanPhase = String(localized: "Analyzing results...")
             state = .scanning(progress: 0.9)
 
             results = scanResults
             filesFound = scanResults.reduce(0) { $0 + $1.fileCount }
 
-            // Build the auto-selection locally and assign once, so the
-            // selectedItems observer (and its size recompute) fires a single
-            // time instead of once per inserted URL.
-            var selection = selectedItems
-            for result in scanResults where result.autoSelect {
-                for item in result.items { selection.insert(item.url) }
-            }
-            selectedItems = selection
+            let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+            let moduleName = String(localized: "System Junk")
+            let data = await Task.detached(priority: .userInitiated) {
+                ReviewDataBuilder.build(
+                    modules: [ModuleScanResult(
+                        moduleID: "system_junk",
+                        moduleName: moduleName,
+                        categories: scanResults,
+                        scanDuration: 0
+                    )],
+                    runningBundleIDs: running,
+                    includeEmptySystemJunkCategories: true
+                )
+            }.value
+            let newReview = ReviewSelection(data: data)
+            review = newReview
+            totalSelectedSize = newReview.selectedSize
 
             let elapsed = Date().timeIntervalSince(scanStart)
             if elapsed < 2.0 {
@@ -124,14 +143,25 @@ final class SystemJunkViewModel {
 
     func startCleaning(engine: CleaningEngine) {
         state = .cleaning(progress: nil)
-        let preCleanSelectedCount = selectedItems.count
+        let preCleanSelectedCount = selectedCount
+        let currentResults = results
+        let reviewData = review?.data
+        let flags = review?.snapshot()
+        let fallbackSelection = selectedItems
 
         cleanTask = Task { [weak self] in
-            // Onprogress is invoked from the engine actor; hop to main
-            // before touching @Observable view state.
+            let selection: Set<URL>
+            if let reviewData, let flags, !reviewData.items.isEmpty {
+                selection = await Task.detached(priority: .userInitiated) {
+                    reviewData.selectedURLs(flags: flags)
+                }.value
+            } else {
+                selection = fallbackSelection
+            }
+
             let result = await CleanActions.executeUserClean(
-                results: self?.results ?? [],
-                selectedItems: self?.selectedItems ?? [],
+                results: currentResults,
+                selectedItems: selection,
                 engine: engine,
                 onProgress: { [weak self] progress in
                     Task { @MainActor in
@@ -152,11 +182,6 @@ final class SystemJunkViewModel {
         }
     }
 
-    /// User clicked Cancel during a long cleanup. The engine honors
-    /// Task.isCancelled at chunk boundaries, so the operation will halt
-    /// and produce a partial CleanResult; the .done state shows the
-    /// partial summary so the user sees what was cleaned before the
-    /// cancellation.
     func cancelCleaning() {
         cleanTask?.cancel()
     }
@@ -165,21 +190,38 @@ final class SystemJunkViewModel {
         state = .idle
         results = []
         selectedItems = []
+        review = nil
         filesFound = 0
         cleanTask = nil
     }
 
-    // MARK: - Navigation persistence
-
-    /// Rehydrate from a previously-cached scan (preserved across navigation).
     func restore(results: [ScanResult], selection: Set<URL>, scanComplete: Bool) {
         self.results = results
         self.selectedItems = selection
         self.filesFound = results.reduce(0) { $0 + $1.fileCount }
+        if !results.isEmpty {
+            let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+            let data = ReviewDataBuilder.build(
+                modules: [ModuleScanResult(
+                    moduleID: "system_junk",
+                    moduleName: String(localized: "System Junk"),
+                    categories: results,
+                    scanDuration: 0
+                )],
+                runningBundleIDs: running,
+                includeEmptySystemJunkCategories: true
+            )
+            let restoredReview = ReviewSelection(data: data)
+            if !data.items.isEmpty && !selection.isEmpty {
+                restoredReview.applySelectedURLs(selection)
+            }
+            self.review = restoredReview
+        } else {
+            self.review = nil
+        }
         state = scanComplete ? (results.isEmpty ? .empty : .results) : .idle
     }
 
-    /// True once a scan has produced a results/empty screen worth preserving.
     var isScanComplete: Bool {
         switch state {
         case .results, .empty: return true

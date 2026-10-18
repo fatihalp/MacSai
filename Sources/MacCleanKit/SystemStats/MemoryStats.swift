@@ -1,7 +1,5 @@
 import Foundation
 
-/// Page-counted memory state from `host_statistics64(HOST_VM_INFO64)`.
-/// Counts are in PAGES, not bytes — multiply by page size to get bytes.
 public struct VMStatistics: Sendable, Equatable {
     public let activeCount: UInt64
     public let inactiveCount: UInt64
@@ -24,15 +22,11 @@ public struct VMStatistics: Sendable, Equatable {
     }
 }
 
-/// Memory pressure summary derived from `VMStatistics`.
-/// "Used" matches the definition Activity Monitor displays: active + wired
-/// + compressed. Inactive and free pages are considered reclaimable.
 public struct MemoryUsage: Sendable, Equatable {
     public let total: UInt64
     public let used: UInt64
     public let swapUsed: UInt64
 
-    /// Fraction of physical memory considered used (0…1).
     public var pressure: Double {
         total > 0 ? Double(used) / Double(total) : 0
     }

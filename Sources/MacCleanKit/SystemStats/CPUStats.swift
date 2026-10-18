@@ -1,8 +1,5 @@
 import Foundation
 
-/// Per-state CPU tick counts from `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`,
-/// summed across all CPUs. A single snapshot is a monotonic counter — usage
-/// fractions come from the difference between two consecutive snapshots.
 public struct CPUTicks: Sendable, Equatable {
     public let user: UInt64
     public let system: UInt64
@@ -16,9 +13,6 @@ public struct CPUTicks: Sendable, Equatable {
         self.nice = nice
     }
 
-    /// Parses raw `processor_info_array_t` output: `[Int32]` of length
-    /// `cpuCount * CPUTicks.statesPerCPU`. Mach's CPU_STATE_USER / SYSTEM /
-    /// IDLE / NICE indices are 0..3 in that order, and CPU_STATE_MAX is 4.
     public static let statesPerCPU = 4
     private static let userIndex = 0
     private static let systemIndex = 1
@@ -33,8 +27,7 @@ public struct CPUTicks: Sendable, Equatable {
         for i in 0..<cpuCount {
             let base = statesPerCPU * i
             guard base + niceIndex < rawLoadInfo.count else { break }
-            // Each counter is a natural_t (UInt32) carried in an integer_t
-            // slot: reinterpret the bits, since `UInt64(negativeInt32)` traps.
+
             user   += UInt64(UInt32(bitPattern: rawLoadInfo[base + userIndex]))
             system += UInt64(UInt32(bitPattern: rawLoadInfo[base + systemIndex]))
             idle   += UInt64(UInt32(bitPattern: rawLoadInfo[base + idleIndex]))
@@ -44,8 +37,6 @@ public struct CPUTicks: Sendable, Equatable {
     }
 }
 
-/// Per-state fractions of CPU time used during the interval between two
-/// `CPUTicks` snapshots. All four fractions sum to 1.0 (within rounding).
 public struct CPUUsage: Sendable, Equatable {
     public let userFraction: Double
     public let systemFraction: Double
@@ -56,9 +47,6 @@ public struct CPUUsage: Sendable, Equatable {
         userFraction + systemFraction + niceFraction
     }
 
-    /// Compute fractions from two snapshots. Returns nil when the interval
-    /// had zero ticks (sampler called too fast) or a per-core UInt32 counter
-    /// wrapped, making a sum go backwards.
     public init?(previous: CPUTicks, current: CPUTicks) {
         guard current.user >= previous.user, current.system >= previous.system,
               current.idle >= previous.idle, current.nice >= previous.nice else { return nil }

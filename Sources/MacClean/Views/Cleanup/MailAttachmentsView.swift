@@ -17,10 +17,10 @@ struct MailAttachmentsView: View {
 
     var body: some View {
         ModuleContainerView(
-            title: L10n.tr("邮件附件", "Mail Attachments", "Почтовые вложения"),
-            subtitle: L10n.tr("查找来自邮件、Outlook 和 Spark 的缓存邮件附件", "Find cached email attachments from Mail, Outlook, and Spark", "Поиск кэшированных вложений в приложениях «Почта», Outlook и Spark"),
+            title: String(localized: "Mail Attachments"),
+            subtitle: String(localized: "Find cached email attachments from Mail, Outlook, and Spark"),
             theme: .cleanup,
-            emptyMessage: L10n.tr("未找到附件", "No attachments found", "Вложения не найдены"),
+            emptyMessage: String(localized: "No attachments found"),
             results: results,
             selectedItems: $selectedItems,
             isScanning: isScanning,
@@ -60,22 +60,22 @@ struct MailAttachmentsView: View {
         Task {
             let scanStart = Date()
 
-            scanPhase = L10n.tr("正在扫描 Apple Mail...", "Scanning Apple Mail...", "Сканирование вложений Почты...")
+            scanPhase = String(localized: "Scanning Apple Mail...")
             scanProgress = 0.2
             try? await Task.sleep(for: .milliseconds(400))
 
-            scanPhase = L10n.tr("正在扫描 Outlook...", "Scanning Outlook...", "Сканирование Outlook...")
+            scanPhase = String(localized: "Scanning Outlook...")
             scanProgress = 0.45
 
             async let scanTask = module.scan()
             try? await Task.sleep(for: .milliseconds(400))
 
-            scanPhase = L10n.tr("正在扫描 Spark...", "Scanning Spark...", "Сканирование Spark...")
+            scanPhase = String(localized: "Scanning Spark...")
             scanProgress = 0.7
 
             results = await scanTask
 
-            scanPhase = L10n.tr("正在分析附件...", "Analyzing attachments...", "Анализ вложений...")
+            scanPhase = String(localized: "Analyzing attachments...")
             scanProgress = 0.9
 
             let elapsed = Date().timeIntervalSince(scanStart)

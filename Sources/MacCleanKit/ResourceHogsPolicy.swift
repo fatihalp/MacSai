@@ -1,7 +1,5 @@
 import Foundation
 
-/// Snapshot of a running app for the Optimization → Resource Hogs list.
-/// Pure data — collected by `ProcessStatsCollector`, ranked here.
 public struct ResourceHogSnapshot: Equatable, Sendable {
     public let pid: Int32
     public let name: String
@@ -24,8 +22,6 @@ public struct ResourceHogSnapshot: Equatable, Sendable {
     }
 }
 
-/// A ranked row ready for the Resource Hogs UI, including whether Quit is
-/// allowed (never for Mac Sai itself or essential shell processes).
 public struct ResourceHogRow: Equatable, Sendable, Identifiable {
     public var id: Int32 { snapshot.pid }
     public let snapshot: ResourceHogSnapshot
@@ -37,15 +33,12 @@ public struct ResourceHogRow: Equatable, Sendable, Identifiable {
     }
 }
 
-/// Pure ranking / quit-safety for Resource Hogs (issue #51).
 public enum ResourceHogsPolicy {
     public enum SortKey: String, Sendable, CaseIterable {
         case cpu
         case memory
     }
 
-    /// Bundle IDs we never offer a Quit button for. Quitting Finder/Dock
-    /// bricks the desktop session; quitting ourselves mid-clean is nonsense.
     public static let neverQuitBundleIDs: Set<String> = [
         MCConstants.bundleIdentifier,
         MCConstants.helperBundleIdentifier,

@@ -4,12 +4,9 @@ import MacCleanKit
 struct DuplicatesView: View {
     @Environment(AppState.self) private var appState
     @State private var results: [ScanResult] = []
-    /// The grouped view model the UI renders. `results` is derived from this
-    /// (its removable copies) and is what the cleaner acts on; `displayGroups`
-    /// carries the kept-original info that `results` alone can't express.
+
     @State private var displayGroups: [DuplicateDisplayGroup] = []
-    /// Which duplicate sets are expanded in the grouped results. Owned here so
-    /// it survives the AnyView rebuild that happens on each checkbox toggle.
+
     @State private var expandedGroups: Set<UUID> = []
     @State private var selectedItems: Set<URL> = []
     @State private var isScanning = false
@@ -19,17 +16,15 @@ struct DuplicatesView: View {
     @State private var completion: CleanSummary?
     @State private var cleaning: CleaningEngine.Progress?
     @State private var cleanTask: Task<Void, Never>?
-    /// In-flight duplicates scan. Held so Cancel can stop hashing mid-run (#3).
+
     @State private var scanTask: Task<Void, Never>?
     @State private var scanTimerTask: Task<Void, Never>?
     @State private var elapsedSeconds: Int = 0
-    /// Remove (delete) vs Consolidate (replace copies with APFS clones) (#65).
+
     @State private var actionMode: DuplicatesActionMode = .remove
     @State private var consolidateConfirm = false
     @State private var consolidateTask: Task<Void, Never>?
-    /// Reclaim estimate for the confirm dialog, computed once (in memory) when
-    /// the user taps Consolidate. Never computed in the body: the disk-touching
-    /// estimate there re-ran on every checkbox toggle and froze the UI (#128).
+
     @State private var consolidateEstimate: UInt64 = 0
 
     var body: some View {
@@ -38,10 +33,10 @@ struct DuplicatesView: View {
                 scanningView
             } else if scanComplete && results.isEmpty {
                 ModuleContainerView(
-                    title: L10n.tr("重复文件", "Duplicates", "Дубликаты"),
+                    title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
-                    emptyMessage: L10n.tr("未找到重复文件", "No duplicates found", "Дубликаты не найдены"),
+                    emptyMessage: String(localized: "No duplicates found"),
                     results: results,
                     selectedItems: $selectedItems,
                     isScanning: false,
@@ -54,7 +49,7 @@ struct DuplicatesView: View {
                 )
             } else if !results.isEmpty {
                 ModuleContainerView(
-                    title: L10n.tr("重复文件", "Duplicates", "Дубликаты"),
+                    title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
                     results: results,
@@ -65,8 +60,7 @@ struct DuplicatesView: View {
                     onScan: scan,
                     onClean: {
                         if actionMode == .consolidate {
-                            // Compute the estimate once, here, from in-memory
-                            // sizes — never in the dialog's message builder (#128).
+
                             consolidateEstimate = DuplicatesConsolidation.estimatedReclaim(
                                 from: displayGroups, selection: selectedItems)
                             consolidateConfirm = true
@@ -80,27 +74,18 @@ struct DuplicatesView: View {
                         AnyView(
                             VStack(spacing: 12) {
                                 Picker("", selection: $actionMode) {
-                                    Text(L10n.tr("删除重复项", "Remove duplicates", "Удалить дубликаты"))
+                                    Text("Remove duplicates")
                                         .tag(DuplicatesActionMode.remove)
-                                    Text(L10n.tr("合并", "Consolidate", "Объединить"))
+                                    Text("Consolidate")
                                         .tag(DuplicatesActionMode.consolidate)
                                 }
                                 .pickerStyle(.segmented)
                                 .labelsHidden()
                                 .padding(.horizontal, 20)
 
-                                // Spell out how the two modes differ, otherwise
-                                // the list looks identical and it's unclear what
-                                // Consolidate does versus Remove.
                                 Text(actionMode == .consolidate
-                                    ? L10n.tr(
-                                        "所选副本会保留在原位并转为克隆，仅释放重复占用的空间，不删除任何文件。",
-                                        "Selected copies stay in place as clones. Only the wasted duplicate space is freed, nothing is deleted.",
-                                        "Выбранные копии остаются на месте как клоны. Освобождается только место, занятое дубликатами, ничего не удаляется.")
-                                    : L10n.tr(
-                                        "所选副本会被移到废纸篓，每组保留一个原件。",
-                                        "Selected copies are moved to the Trash, one original is kept per group.",
-                                        "Выбранные копии перемещаются в Корзину, в каждой группе остаётся один оригинал."))
+                                    ? String(localized: "Selected copies stay in place as clones. Only the wasted duplicate space is freed, nothing is deleted.")
+                                    : String(localized: "Selected copies are moved to the Trash, one original is kept per group."))
                                     .font(.system(size: 12))
                                     .foregroundStyle(.primary.opacity(0.6))
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,12 +100,12 @@ struct DuplicatesView: View {
                         )
                     },
                     actionLabel: actionMode == .consolidate
-                        ? L10n.tr("合并", "Consolidate", "Объединить")
+                        ? String(localized: "Consolidate")
                         : nil
                 )
             } else if completion != nil {
                 ModuleContainerView(
-                    title: L10n.tr("重复文件", "Duplicates", "Дубликаты"),
+                    title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
                     results: [],
@@ -137,27 +122,21 @@ struct DuplicatesView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Idle / scanning paths don't use ModuleContainerView; relay ⌘R here.
-        // When ModuleContainerView is shown it also listens to the same nonces —
-        // outer must NOT accept ⌘K (canClean: false), or clean() runs twice and
-        // the second pass can overwrite the completion summary with "0 freed".
+
         .respondsToModuleShortcuts(
             onScan: scan,
             canScan: !isScanning && cleaning == nil && completion == nil && results.isEmpty && !scanComplete,
             canClean: false
         )
         .confirmationDialog(
-            L10n.tr("合并所选副本？", "Consolidate selected copies?", "Объединить выбранные копии?"),
+            String(localized: "Consolidate selected copies?"),
             isPresented: $consolidateConfirm, titleVisibility: .visible
         ) {
-            Button(L10n.tr("合并", "Consolidate", "Объединить")) { consolidate() }
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) {}
+            Button(String(localized: "Consolidate")) { consolidate() }
+            Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
-            // Reads a cached value only — no disk I/O, no per-toggle work (#128).
-            Text(L10n.tr(
-                "保留所有副本，预计释放 \(FileSizeFormatter.format(consolidateEstimate))",
-                "Keeps every copy, frees about \(FileSizeFormatter.format(consolidateEstimate))",
-                "Сохраняет все копии, освободит примерно \(FileSizeFormatter.format(consolidateEstimate))"))
+
+            Text("Keeps every copy, frees about \(FileSizeFormatter.format(consolidateEstimate))")
         }
     }
 
@@ -166,10 +145,10 @@ struct DuplicatesView: View {
             Spacer()
 
             VStack(spacing: 10) {
-                Text(L10n.tr("重复文件", "Duplicates", "Дубликаты"))
+                Text("Duplicates")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.primary)
-                Text(L10n.tr("使用渐进式 SHA-256 哈希检测\n查找重复文件", "Find duplicate files using progressive\nSHA-256 hash detection", "Поиск дубликатов с помощью поэтапного\nхеширования SHA-256"))
+                Text("Find duplicate files using progressive\nSHA-256 hash detection")
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.65))
                     .multilineTextAlignment(.center)
@@ -179,7 +158,7 @@ struct DuplicatesView: View {
                 Image(systemName: "clock.fill")
                     .foregroundStyle(.yellow)
                     .font(.system(size: 13))
-                Text(L10n.tr("大型个人目录可能需要几分钟扫描", "This scan may take several minutes on large home folders", "Сканирование большой домашней папки может занять несколько минут"))
+                Text("This scan may take several minutes on large home folders")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.8))
             }
@@ -188,7 +167,7 @@ struct DuplicatesView: View {
             .background(.primary.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            ScanButton(title: L10n.tr("扫描", "Scan", "Сканировать"), subtitle: L10n.tr("重复文件", "Duplicates", "Дубликаты"), theme: .files, action: scan)
+            ScanButton(title: String(localized: "Scan"), subtitle: String(localized: "Duplicates"), theme: .files, action: scan)
 
             Spacer()
         }
@@ -210,18 +189,18 @@ struct DuplicatesView: View {
                     .contentTransition(.interpolate)
                     .animation(.easeInOut(duration: 0.2), value: scanPhase)
 
-                Text(L10n.tr("已用时：\(formatElapsed(elapsedSeconds))", "Elapsed: \(formatElapsed(elapsedSeconds))", "Прошло: \(formatElapsed(elapsedSeconds))"))
+                Text("Elapsed: \(formatElapsed(elapsedSeconds))")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.primary.opacity(0.6))
             }
 
-            Text(L10n.tr("重复文件检测会使用 SHA-256 哈希每个候选文件。\n大型个人目录可能需要 5–15 分钟。", "Duplicate detection hashes every candidate file with SHA-256.\nLarge home folders can take 5–15 minutes.", "При поиске дубликатов для каждого файла вычисляется хеш SHA-256.\nОбработка больших домашних папок может занять 5–15 минут."))
+            Text("Duplicate detection hashes every candidate file with SHA-256.\nLarge home folders can take 5–15 minutes.")
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            Button(L10n.tr("取消", "Cancel", "Отмена")) { cancelScan() }
+            Button(String(localized: "Cancel")) { cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -241,12 +220,11 @@ struct DuplicatesView: View {
         scanComplete = false
         scanProgress = 0
         elapsedSeconds = 0
-        scanPhase = L10n.tr("正在扫描个人目录...", "Scanning home folder...", "Сканирование домашней папки...")
+        scanPhase = String(localized: "Scanning home folder...")
 
         scanTask?.cancel()
         scanTimerTask?.cancel()
 
-        // Elapsed timer
         scanTimerTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
@@ -256,34 +234,33 @@ struct DuplicatesView: View {
         }
 
         scanTask = Task {
-            scanPhase = L10n.tr("正在扫描个人目录...", "Scanning home folder...", "Сканирование домашней папки...")
+            scanPhase = String(localized: "Scanning home folder...")
             try? await Task.sleep(for: .milliseconds(400))
             if Task.isCancelled { return }
 
-            scanPhase = L10n.tr("正在按大小分组文件...", "Grouping files by size...", "Группировка файлов по размеру...")
+            scanPhase = String(localized: "Grouping files by size...")
             try? await Task.sleep(for: .milliseconds(400))
             if Task.isCancelled { return }
 
-            scanPhase = L10n.tr("正在并行哈希候选文件...", "Hashing candidate files in parallel...", "Параллельное хеширование файлов-кандидатов...")
+            scanPhase = String(localized: "Hashing candidate files in parallel...")
 
             let module = DuplicatesModule()
             let groups = await module.scanDisplayGroups()
             if Task.isCancelled { return }
 
-            scanPhase = L10n.tr("正在完成...", "Finalizing...", "Завершение...")
+            scanPhase = String(localized: "Finalizing...")
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
 
             scanTimerTask?.cancel()
             displayGroups = groups
             expandedGroups = []
-            // The cleaner only ever sees the removable copies — never an
-            // original — so a kept copy can't be deleted even by selecting all.
+
             let removable = groups.flatMap(\.duplicates)
             results = removable.isEmpty
                 ? []
                 : [ScanResult(category: .duplicates, items: removable, autoSelect: false)]
-            // Pre-check every removable copy; the user unchecks anything to spare.
+
             selectedItems = Set(removable.map(\.url))
             isScanning = false
             scanComplete = true
@@ -292,7 +269,6 @@ struct DuplicatesView: View {
         }
     }
 
-    /// Stop an in-flight duplicates scan and return to the idle screen (#3).
     private func cancelScan() {
         scanTask?.cancel()
         scanTimerTask?.cancel()
@@ -330,9 +306,6 @@ struct DuplicatesView: View {
         }
     }
 
-    /// Replace the selected copies with APFS clones of each group's kept master,
-    /// keeping every path in place (#65). Reuses the shared done-screen via
-    /// `completion`; the filesystem work runs off the main actor.
     private func consolidate() {
         let groups = DuplicatesConsolidation.groups(from: displayGroups, selection: selectedItems)
         let planned = groups.reduce(0) { $0 + $1.copies.count }
@@ -356,12 +329,12 @@ struct DuplicatesView: View {
 
     private func skipLabel(_ reason: SkipReason) -> String {
         switch reason {
-        case .contentChanged: L10n.tr("内容已更改", "content changed", "содержимое изменилось")
-        case .notSameVolume: L10n.tr("跨卷", "different volume", "другой том")
-        case .cloningUnsupported: L10n.tr("非 APFS 卷", "not an APFS volume", "не том APFS")
-        case .notRegularFile: L10n.tr("非普通文件", "not a regular file", "не обычный файл")
-        case .notWritable: L10n.tr("不可写", "not writable", "недоступно для записи")
-        case .protectedPath: L10n.tr("受保护路径", "protected path", "защищённый путь")
+        case .contentChanged: String(localized: "content changed")
+        case .notSameVolume: String(localized: "different volume")
+        case .cloningUnsupported: String(localized: "not an APFS volume")
+        case .notRegularFile: String(localized: "not a regular file")
+        case .notWritable: String(localized: "not writable")
+        case .protectedPath: String(localized: "protected path")
         }
     }
 

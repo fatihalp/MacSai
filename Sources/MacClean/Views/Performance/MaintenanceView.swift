@@ -4,7 +4,7 @@ import MacCleanKit
 struct MaintenanceView: View {
     @State private var taskStates: [MaintenanceTask: TaskState] = [:]
     @State private var executor = MaintenanceExecutor()
-    /// When non-nil, the confirmation alert is presented for this task.
+
     @State private var taskAwaitingConfirmation: MaintenanceTask?
 
     enum TaskState {
@@ -18,23 +18,19 @@ struct MaintenanceView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("维护", "Maintenance", "Обслуживание"))
+                    Text("Maintenance")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr("运行系统维护任务，让 Mac 保持健康", "Run system maintenance tasks to keep your Mac healthy", "Выполняйте задачи обслуживания, чтобы поддерживать Mac в хорошем состоянии"))
+                    Text("Run system maintenance tasks to keep your Mac healthy")
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
                 }
                 Spacer()
-                // Was "Run All" — but blanket-running every task in this
-                // module hides hours-long Spotlight/Launch-Services
-                // disruption behind a single click. Only fire-and-forget
-                // safe tasks now; advanced ones require per-task consent.
-                Button(L10n.tr("运行安全任务", "Run Safe Tasks", "Запустить безопасные задачи")) { runSafeTasks() }
-                    .buttonStyle(SuperEllipseButtonStyle(
-                        gradient: ModuleTheme.performance.buttonGradient,
-                        size: CGSize(width: 120, height: 34)
-                    ))
+
+                Button(String(localized: "Run Safe Tasks")) { runSafeTasks() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(nsColor: .systemBlue))
+                    .controlSize(.regular)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -50,17 +46,17 @@ struct MaintenanceView: View {
             }
         }
         .alert(
-            L10n.tr("运行 \(taskAwaitingConfirmation?.title ?? "")？", "Run \(taskAwaitingConfirmation?.title ?? "")?", "Запустить \(taskAwaitingConfirmation?.title ?? "")?"),
+            "Run \(taskAwaitingConfirmation?.title ?? "")?",
             isPresented: Binding(
                 get: { taskAwaitingConfirmation != nil },
                 set: { if !$0 { taskAwaitingConfirmation = nil } }
             ),
             presenting: taskAwaitingConfirmation
         ) { task in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) {
+            Button(String(localized: "Cancel"), role: .cancel) {
                 taskAwaitingConfirmation = nil
             }
-            Button(L10n.tr("仍要运行", "Run Anyway", "Всё равно запустить"), role: .destructive) {
+            Button(String(localized: "Run Anyway"), role: .destructive) {
                 let captured = task
                 taskAwaitingConfirmation = nil
                 runTask(captured)
@@ -83,7 +79,7 @@ struct MaintenanceView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.primary)
                     if task.severity == .advanced {
-                        Text(L10n.tr("高级", "ADVANCED", "РАСШИРЕННАЯ"))
+                        Text("ADVANCED")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(.orange)
                             .padding(.horizontal, 5)
@@ -123,8 +119,8 @@ struct MaintenanceView: View {
             .buttonStyle(.plain)
             .disabled(isRunning(task))
             .help(task.severity == .advanced
-                  ? L10n.tr("可能带来持续数小时的影响——将打开确认窗口", "Has multi-hour side effects — opens a confirmation", "Может влиять на систему несколько часов — откроется окно подтверждения")
-                  : L10n.tr("运行此任务", "Run this task", "Запустить эту задачу"))
+                  ? String(localized: "Has multi-hour side effects — opens a confirmation")
+                  : String(localized: "Run this task"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -156,8 +152,6 @@ struct MaintenanceView: View {
         return false
     }
 
-    /// Routes through the severity check: safe tasks run immediately,
-    /// advanced tasks pop the confirmation alert first.
     private func didTapRun(_ task: MaintenanceTask) {
         switch task.severity {
         case .safe:
@@ -173,7 +167,7 @@ struct MaintenanceView: View {
         if result.success {
             taskStates[task] = .completed(result.output)
         } else {
-            taskStates[task] = .failed(result.error ?? L10n.tr("未知错误", "Unknown error", "Неизвестная ошибка"))
+            taskStates[task] = .failed(result.error ?? String(localized: "Unknown error"))
         }
     }
 
@@ -181,10 +175,6 @@ struct MaintenanceView: View {
         Task { await executeAndStore(task) }
     }
 
-    /// Bulk button runs ONLY safe tasks, and runs them SEQUENTIALLY. Several
-    /// safe tasks need admin (purge, periodic). Sequential order keeps the
-    /// UI status per-task; the in-process AppleScript runner then reuses the
-    /// cached admin password so the user types it once (issues #82 / #143).
     private func runSafeTasks() {
         let safeTasks = MaintenanceTask.allCases.filter { $0.severity == .safe }
         Task {

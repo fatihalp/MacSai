@@ -1,7 +1,6 @@
 import Foundation
 import CoreGraphics
 
-/// File type category for treemap color coding (inspired by Space Sniffer).
 public enum FileTypeCategory: String, Sendable, CaseIterable {
     case folders
     case documents
@@ -17,17 +16,17 @@ public enum FileTypeCategory: String, Sendable, CaseIterable {
 
     public var label: String {
         switch self {
-        case .folders: L10n.tr("文件夹", "Folders", "Папки")
-        case .documents: L10n.tr("文档", "Documents", "Документы")
-        case .images: L10n.tr("图片", "Images", "Изображения")
-        case .video: L10n.tr("视频", "Video", "Видео")
-        case .audio: L10n.tr("音频", "Audio", "Аудио")
-        case .archives: L10n.tr("压缩包", "Archives", "Архивы")
-        case .code: L10n.tr("代码", "Code", "Код")
-        case .diskImages: L10n.tr("磁盘映像", "Disk Images", "Образы дисков")
-        case .applications: L10n.tr("应用程序", "Applications", "Приложения")
-        case .system: L10n.tr("系统", "System", "Система")
-        case .other: L10n.tr("其他", "Other", "Другое")
+        case .folders: String(localized: "Folders")
+        case .documents: String(localized: "Documents")
+        case .images: String(localized: "Images")
+        case .video: String(localized: "Video")
+        case .audio: String(localized: "Audio")
+        case .archives: String(localized: "Archives")
+        case .code: String(localized: "Code")
+        case .diskImages: String(localized: "Disk Images")
+        case .applications: String(localized: "Applications")
+        case .system: String(localized: "System")
+        case .other: String(localized: "Other")
         }
     }
 
@@ -55,7 +54,6 @@ public enum FileTypeCategory: String, Sendable, CaseIterable {
     }
 }
 
-/// A node in a treemap layout. Pure data.
 public struct TreemapNode: Sendable {
     public let name: String
     public let size: UInt64
@@ -87,7 +85,6 @@ public struct TreemapNode: Sendable {
     }
 }
 
-/// A laid-out rectangle for a treemap node.
 public struct TreemapRect: Identifiable, Sendable {
     public let id: UUID
     public let node: TreemapNode
@@ -100,15 +97,8 @@ public struct TreemapRect: Identifiable, Sendable {
     }
 }
 
-/// Squarified Treemap layout (Bruls, Huijing, van Wijk — 2000).
-///
-/// Sorts nodes by size descending, greedily groups them into rows that minimize
-/// the worst-case aspect ratio of any rectangle in the row, then renders along
-/// the shorter side of the remaining space.
 public enum SquarifiedTreemap {
 
-    /// Compute the layout for `nodes` filling `rect`.
-    /// - Returns: One `TreemapRect` per input node, in the order they were laid out.
     public static func layout(nodes: [TreemapNode], in rect: CGRect) -> [TreemapRect] {
         guard !nodes.isEmpty, rect.width > 0, rect.height > 0 else { return [] }
 
@@ -212,8 +202,6 @@ public enum SquarifiedTreemap {
         return (results, rest, newRect)
     }
 
-    /// Worst-case aspect ratio of any single rectangle, given the cumulative
-    /// areas placed in the current row and the side length being filled.
     public static func worstAspectRatio(
         areas: [Double],
         totalArea: Double,

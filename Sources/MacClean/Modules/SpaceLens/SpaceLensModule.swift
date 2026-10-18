@@ -3,7 +3,7 @@ import MacCleanKit
 
 public struct SpaceLensModule: ScanModule {
     public let id = "space_lens"
-    public var name: String { L10n.tr("空间透视", "Space Lens", "Карта диска") }
+    public var name: String { String(localized: "Space Lens") }
     public let category = ModuleCategory.files
     public let includedInSmartScan = false
 
@@ -11,12 +11,6 @@ public struct SpaceLensModule: ScanModule {
 
     public func scan() async -> [ScanResult] { [] }
 }
-
-// MARK: - VolumeInfo system probe
-//
-// `VolumeInfo`, `TreemapNode`, `TreemapRect`, and `SquarifiedTreemap`
-// all moved to MacCleanKit for testability. Only the system probe
-// (`FileManager.mountedVolumeURLs(...)`) stays here.
 
 public extension VolumeInfo {
     static func mountedVolumes() -> [VolumeInfo] {

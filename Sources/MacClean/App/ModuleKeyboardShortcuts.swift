@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Marks whether this module view is the currently selected sidebar item.
-/// Visited (kept-alive) views stay in the hierarchy at opacity 0 — they must
-/// ignore global ⌘R / ⌘K unless selected.
 private enum ModuleIsSelectedKey: EnvironmentKey {
     static let defaultValue = false
 }
@@ -14,7 +11,6 @@ extension EnvironmentValues {
     }
 }
 
-/// Relays AppState shortcut nonces into scan/clean actions for the focused module.
 struct RespondsToModuleShortcuts: ViewModifier {
     @Environment(AppState.self) private var appState
     @Environment(\.moduleIsSelected) private var isSelected
@@ -52,16 +48,12 @@ extension View {
     }
 }
 
-/// Who handles ⌘K for Duplicates when both the outer view and ModuleContainerView
-/// listen to `cleanShortcutNonce`. Outer always declines; the container owns clean
-/// whenever results (or completion) are on screen.
 enum DuplicatesShortcutOwnership {
     enum CleanOwner: Equatable {
         case none
         case container
     }
 
-    /// Outer `DuplicatesView` must never accept ⌘K — ModuleContainerView already does.
     static let outerCanClean = false
 
     static func cleanOwner(showingContainerResults: Bool) -> CleanOwner {

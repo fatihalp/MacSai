@@ -1,19 +1,15 @@
 import Foundation
 import MacCleanKit
 
-/// Persists whole-clean sessions so the user can Restore in one click.
 public enum CleanHistoryRecorder {
-    /// Override in tests. Under XCTest it defaults to a temp file so the
-    /// suite's real trash cleans never land in the developer's own history.
+
     nonisolated(unsafe) public static var fileURL: URL = NSClassFromString("XCTestCase") != nil
         ? FileManager.default.temporaryDirectory
             .appending(path: "macsai-test-clean-history-\(ProcessInfo.processInfo.processIdentifier).json")
         : MCConstants.cleanHistoryFile
-    /// Override in tests; the user's Trash in production.
+
     nonisolated(unsafe) public static var trashRoot: URL = MCConstants.userTrash
 
-    /// Serializes load-modify-save so two cleans finishing together can't
-    /// drop each other's session.
     private static let lock = NSLock()
 
     public static func load() -> [CleanHistorySession] {
@@ -58,14 +54,10 @@ public enum CleanHistoryRecorder {
         lock.withLock { unlockedSave(sessions) }
     }
 
-    /// Forgets every session. Files already in the Trash are not touched.
     public static func clear() {
         lock.withLock { try? FileManager.default.removeItem(at: fileURL) }
     }
 
-    /// Writes owner-only (0600, the file lists cleaned paths) and atomically:
-    /// the data goes to a temp file created with those permissions, which is
-    /// then renamed over the old history.
     private static func unlockedSave(_ sessions: [CleanHistorySession]) {
         let url = fileURL
         let dir = url.deletingLastPathComponent()
@@ -82,10 +74,6 @@ public enum CleanHistoryRecorder {
         }
     }
 
-    /// Puts a session's items back where they were. Each item is validated
-    /// first, never overwrites anything (`moveItem` fails on an existing
-    /// destination), and only items that actually moved are counted and
-    /// dropped from the history. Blocking: call off the main thread.
     @discardableResult
     public static func restore(_ session: CleanHistorySession) -> CleanHistoryRestoreSummary {
         let fm = FileManager.default
@@ -134,8 +122,6 @@ public enum CleanHistoryRecorder {
         return summary
     }
 
-    /// Inode of the item at `path` without following a final symlink, or nil
-    /// when nothing is there.
     static func fileID(atPath path: String) -> UInt64? {
         var info = stat()
         guard lstat(path, &info) == 0 else { return nil }
