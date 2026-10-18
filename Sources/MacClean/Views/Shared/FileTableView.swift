@@ -2,15 +2,6 @@ import SwiftUI
 import AppKit
 import MacCleanKit
 
-/// AppKit-backed scan-results table.
-///
-/// SwiftUI's `List` re-diffs every row on each view update (it cannot be
-/// disabled), which beachballs once a scan produces tens of thousands of
-/// items — even opening an unrelated menu froze the UI. `NSTableView` only
-/// materialises the ~30 visible rows and recycles their cells, so the row
-/// count stops mattering. `reloadData()` preserves scroll position and is
-/// cheap (visible cells only), so the update path is a single, simple rule:
-/// rows changed → reload.
 struct FileTableView: NSViewRepresentable {
     let rows: [FileListRow]
     let onToggleItem: (URL) -> Void
@@ -40,7 +31,7 @@ struct FileTableView: NSViewRepresentable {
 
         let menu = NSMenu()
         let reveal = NSMenuItem(
-            title: L10n.tr("在 Finder 中显示", "Reveal in Finder", "Показать в Finder"),
+            title: String(localized: "Reveal in Finder"),
             action: #selector(Coordinator.revealInFinder(_:)),
             keyEquivalent: ""
         )
@@ -56,8 +47,7 @@ struct FileTableView: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.drawsBackground = false
-        // Top/bottom breathing room so the first/last rows aren't flush against
-        // the rounded container edges.
+
         scroll.automaticallyAdjustsContentInsets = false
         scroll.contentInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         return scroll
@@ -74,15 +64,9 @@ struct FileTableView: NSViewRepresentable {
         }
     }
 
-    // MARK: - Coordinator
-
-    // @MainActor + @preconcurrency: AppKit calls these delegate methods on the
-    // main thread, but older SDKs (CI's macos-15 Xcode) don't annotate the
-    // protocols as @MainActor, so without this the methods compile as
-    // nonisolated and every AppKit call inside errors under Swift 6.
     @MainActor
-    final class Coordinator: NSObject, @preconcurrency NSTableViewDataSource,
-                             @preconcurrency NSTableViewDelegate, @preconcurrency NSMenuDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource,
+                             NSTableViewDelegate, NSMenuDelegate {
         var rows: [FileListRow] = []
         weak var tableView: NSTableView?
         var onToggleItem: (URL) -> Void = { _ in }
@@ -126,10 +110,6 @@ struct FileTableView: NSViewRepresentable {
             }
         }
 
-        /// Each category (header + its items) is drawn as one rounded "card"
-        /// with a gap between groups: the row's position within its group decides
-        /// which corners round. Groups always start with a header row and run
-        /// until the next header (or the end).
         func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
             let id = NSUserInterfaceItemIdentifier("grouprow")
             let rowView = (tableView.makeView(withIdentifier: id, owner: nil) as? GroupRowView)
@@ -162,9 +142,6 @@ struct FileTableView: NSViewRepresentable {
             return cell
         }
 
-        /// Single click anywhere on a row (outside its checkbox/chevron/action
-        /// buttons, which consume their own clicks): items toggle selection,
-        /// headers fold/unfold.
         @objc func tableClicked(_ sender: NSTableView) {
             let row = sender.clickedRow
             guard row >= 0, row < rows.count else { return }
@@ -189,12 +166,6 @@ struct FileTableView: NSViewRepresentable {
     }
 }
 
-// MARK: - Cells
-
-/// Category header: disclosure chevron, tri-state select-all checkbox, icon,
-/// name (plus a safety badge explaining why it's safe to clean) over a
-/// one-line description, "selected/total selected" count, and a
-/// "selectedSize / totalSize" readout (selected portion in the accent colour).
 private final class HeaderCellView: NSTableCellView {
     private let chevron = NSButton()
     private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -291,7 +262,7 @@ private final class HeaderCellView: NSTableCellView {
         self.onToggleAll = onToggleAll
         chevron.image = NSImage(
             systemSymbolName: header.isExpanded ? "chevron.down" : "chevron.right",
-            accessibilityDescription: header.isExpanded ? L10n.tr("折叠", "Collapse", "Свернуть") : L10n.tr("展开", "Expand", "Развернуть")
+            accessibilityDescription: header.isExpanded ? String(localized: "Collapse") : String(localized: "Expand")
         )
         switch header.selection {
         case .all: checkbox.state = .on
@@ -303,8 +274,7 @@ private final class HeaderCellView: NSTableCellView {
         )
         title.stringValue = header.category.displayName
         subtitle.stringValue = header.category.subtitle
-        // Both labels truncate to one line, so a narrow window can hide what a
-        // category actually contains. Hovering the header row shows both in full.
+
         toolTip = header.category.tooltip
         category = header.category
         let safety = header.category.cleanupSafety
@@ -315,15 +285,12 @@ private final class HeaderCellView: NSTableCellView {
         safetyButton.toolTip = "\(safety.label)\n\(header.category.safetyRationale)"
         safetyButton.setAccessibilityLabel(safety.label)
         safetyButton.setAccessibilityHelp(header.category.safetyRationale)
-        count.stringValue = L10n.tr("已选择 \(header.selectedCount)/\(header.fileCount)", "\(header.selectedCount)/\(header.fileCount) selected", "Выбрано \(header.selectedCount) из \(header.fileCount)")
+        count.stringValue = "\(header.selectedCount)/\(header.fileCount) selected"
         size.attributedStringValue = Self.sizeText(
             selected: header.selectedSize, total: header.totalSize
         )
     }
 
-    /// "selectedSize / totalSize" — the selected portion emphasised with the
-    /// primary label colour + weight (readable on the coloured module
-    /// backgrounds, unlike an accent tint), the total dimmed.
     private static func sizeText(selected: UInt64, total: UInt64) -> NSAttributedString {
         let result = NSMutableAttributedString(
             string: FileSizeFormatter.format(selected),
@@ -352,8 +319,6 @@ private final class HeaderCellView: NSTableCellView {
     @objc private func chevronClicked() { onToggleExpand() }
     @objc private func checkboxClicked() { onToggleAll() }
 
-    /// The tooltip needs a hover pause; a click shows the same explanation
-    /// right away, next to the badge.
     @objc private func safetyClicked() {
         guard let category else { return }
         let popover = NSPopover()
@@ -363,7 +328,6 @@ private final class HeaderCellView: NSTableCellView {
     }
 }
 
-/// Popover content for a category's safety badge: the verdict, then why.
 private final class SafetyRationaleViewController: NSViewController {
     private let category: ScanCategory
 
@@ -396,14 +360,12 @@ private final class SafetyRationaleViewController: NSViewController {
     }
 }
 
-/// File row: checkbox, icon, name over parent path, optional "App open" badge,
-/// size, and inline info (copy path) + reveal-in-Finder buttons.
 private final class ItemCellView: NSTableCellView {
     private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let path = NSTextField(labelWithString: "")
-    private let badge = BadgeView(text: L10n.tr("应用已打开", "App open", "Приложение открыто"))
+    private let badge = BadgeView(text: String(localized: "App open"))
     private let size = NSTextField(labelWithString: "")
     private let infoButton = NSButton()
     private let revealButton = NSButton()
@@ -428,8 +390,6 @@ private final class ItemCellView: NSTableCellView {
         path.lineBreakMode = .byTruncatingHead
         path.maximumNumberOfLines = 1
 
-        // Long, space-less names (e.g. cache hashes) must truncate, not push the
-        // checkbox/icon out of alignment. Let the labels yield horizontally.
         for label in [name, path] {
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             label.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -439,8 +399,8 @@ private final class ItemCellView: NSTableCellView {
         size.textColor = .secondaryLabelColor
         size.alignment = .right
 
-        configureIconButton(infoButton, symbol: "info.circle", tooltip: L10n.tr("复制路径", "Copy path", "Скопировать путь"), action: #selector(infoClicked))
-        configureIconButton(revealButton, symbol: "folder", tooltip: L10n.tr("在 Finder 中显示", "Reveal in Finder", "Показать в Finder"), action: #selector(revealClicked))
+        configureIconButton(infoButton, symbol: "info.circle", tooltip: String(localized: "Copy path"), action: #selector(infoClicked))
+        configureIconButton(revealButton, symbol: "folder", tooltip: String(localized: "Reveal in Finder"), action: #selector(revealClicked))
 
         for view in [checkbox, icon, name, path, badge, size, infoButton, revealButton] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -527,10 +487,6 @@ private final class ItemCellView: NSTableCellView {
     }
 }
 
-/// Row background that renders each category group as its own rounded "card":
-/// the header rounds the top, the last item rounds the bottom, middle rows are
-/// square, and a single (collapsed) group rounds all four corners. A small gap
-/// at each group boundary separates adjacent cards.
 private final class GroupRowView: NSTableRowView {
     enum GroupPosition { case top, middle, bottom, single }
     var groupPosition: GroupPosition = .middle { didSet { needsLayout = true } }
@@ -554,12 +510,12 @@ private final class GroupRowView: NSTableRowView {
     override func layout() {
         super.layout()
         updateCardColor()
-        // Don't animate the card frame on reload/scroll.
+
         card.actions = ["position": NSNull(), "bounds": NSNull(), "frame": NSNull()]
 
         let topGap: CGFloat = (groupPosition == .top || groupPosition == .single) ? gap : 0
         let bottomGap: CGFloat = (groupPosition == .bottom || groupPosition == .single) ? gap : 0
-        // Layer-backed flipped view: geometry is flipped, so y == 0 is the top.
+
         card.frame = CGRect(
             x: hInset,
             y: topGap,
@@ -579,8 +535,6 @@ private final class GroupRowView: NSTableRowView {
         }
     }
 
-    /// CALayer `cgColor` is static, so re-resolve `labelColor` for the current
-    /// appearance: a subtle dark card on Light, a subtle light card on Dark.
     private func updateCardColor() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             card.backgroundColor = NSColor.labelColor.withAlphaComponent(0.06).cgColor
@@ -592,11 +546,9 @@ private final class GroupRowView: NSTableRowView {
         updateCardColor()
     }
 
-    // The card is the only background; suppress the table's default selection draw.
     override func drawSelection(in dirtyRect: NSRect) {}
 }
 
-/// Small rounded pill, e.g. "App open", warning the user the owning app is live.
 private final class BadgeView: NSView {
     private let label = NSTextField(labelWithString: "")
 

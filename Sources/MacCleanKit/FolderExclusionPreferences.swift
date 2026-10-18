@@ -1,13 +1,9 @@
 import Foundation
 
-/// Persisted list of folders the user asked Mac Sai never to scan or delete
-/// (issue #141). Mirrors `LanguagePreferences`: `UserDefaults` string array.
-/// Tests pass an injected suite / home path so they never touch the real prefs.
 public enum FolderExclusionPreferences {
     public static let defaultsKey = "excludedFolders"
     public static let defaultMaxCount = 50
 
-    /// Absolute folder paths currently excluded (normalized).
     public static var paths: [String] {
         get { paths(in: .standard) }
         set { setPaths(newValue, in: .standard) }
@@ -21,7 +17,6 @@ public enum FolderExclusionPreferences {
         defaults.set(PathExclusion.normalized(paths), forKey: defaultsKey)
     }
 
-    /// Adds `path` if the candidate policy allows it. Returns false on reject.
     @discardableResult
     public static func add(
         _ path: String,

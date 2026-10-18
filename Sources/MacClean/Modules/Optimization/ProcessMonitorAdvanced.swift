@@ -4,7 +4,7 @@ import Darwin
 
 public actor ProcessStatsCollector {
     public struct ProcessStats: Identifiable, Sendable {
-        public let id: Int32 // pid
+        public let id: Int32
         public let name: String
         public let cpuPercent: Double
         public let memoryBytes: UInt64
@@ -63,7 +63,7 @@ public actor ProcessStatsCollector {
             let elapsed = now.timeIntervalSince(prev.timestamp)
             guard elapsed > 0 else { return 0 }
 
-            let userDiff = Double(currentUser - prev.user) / 1_000_000_000 // ns to s
+            let userDiff = Double(currentUser - prev.user) / 1_000_000_000
             let sysDiff = Double(currentSystem - prev.system) / 1_000_000_000
             let cpuPercent = ((userDiff + sysDiff) / elapsed) * 100
 
@@ -75,15 +75,6 @@ public actor ProcessStatsCollector {
         return 0
     }
 
-    /// `task_for_pid` (the previous implementation here) requires the
-    /// `com.apple.security.get-task-allow` entitlement — or root — to
-    /// obtain another process's task port. Neither applies to a normal,
-    /// hardened-runtime GUI app querying sibling apps, so it failed with
-    /// KERN_FAILURE for essentially every process but our own, and every
-    /// app in the "heavy consumers" / memory list silently showed 0 bytes.
-    /// `proc_pid_rusage` goes through libproc instead (the same family of
-    /// call already used for `cpuUsage` above via `proc_pidinfo`), which
-    /// only needs to see the target process, not open its task port.
     private nonisolated func memoryUsage(for pid: Int32) -> UInt64 {
         var info = rusage_info_v2()
         let result = withUnsafeMutablePointer(to: &info) { ptr -> Int32 in

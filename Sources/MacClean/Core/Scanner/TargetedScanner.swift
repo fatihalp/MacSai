@@ -2,8 +2,6 @@ import Foundation
 import Darwin
 import MacCleanKit
 
-// `ScanTarget` moved to MacCleanKit for testability — see MacCleanKit/ScanTarget.swift.
-
 public actor TargetedScanner {
     private let resourceKeys: [URLResourceKey] = [
         .fileSizeKey, .fileAllocatedSizeKey,
@@ -19,15 +17,6 @@ public actor TargetedScanner {
         await scanReportingPermissions(targets: targets).items
     }
 
-    /// Like `scan(targets:)` but also reports which target roots were
-    /// unreadable due to a permission/TCC denial. Use this when the caller
-    /// needs to tell "found nothing" apart from "blocked by missing Full
-    /// Disk Access" (e.g. the Trash module — see `ScanOutcome`).
-    ///
-    /// Items are de-duplicated by URL across targets: overlapping targets
-    /// (e.g. `~` recursive *and* `~/Downloads` recursive) otherwise emit the
-    /// same file twice, which surfaced as duplicate UI rows and a
-    /// double-counted size estimate.
     public func scanReportingPermissions(targets: [ScanTarget]) async -> ScanOutcome {
         let keys = resourceKeys
         return await withTaskGroup(of: (items: [FileItem], deniedPath: URL?).self) { group in
@@ -52,12 +41,6 @@ public actor TargetedScanner {
         }
     }
 
-    /// True if `url` exists as a directory whose contents can't be read
-    /// because of a permission/TCC denial (EPERM/EACCES). `open` faithfully
-    /// reproduces what enumeration would hit — and unlike enumeration, it
-    /// surfaces the errno instead of silently yielding nothing. O(1): no
-    /// directory listing. Returns false for readable dirs and for paths
-    /// that don't exist / aren't directories.
     private static func isPermissionDenied(_ url: URL) -> Bool {
         let fd = open(url.path(percentEncoded: false), O_RDONLY | O_DIRECTORY)
         if fd >= 0 { close(fd); return false }
@@ -71,9 +54,6 @@ public actor TargetedScanner {
             return ([], nil)
         }
 
-        // The enumerator/`contentsOfDirectory` below swallow EPERM and just
-        // yield nothing, so probe readability up front to distinguish a
-        // permission denial from a genuinely empty directory.
         if isPermissionDenied(target.path) {
             return ([], target.path)
         }
@@ -101,11 +81,6 @@ public actor TargetedScanner {
                     }
                 }
 
-                // Skip hidden (dot-prefixed) entries when the target opts in.
-                // These subtrees hold application and developer state — caches,
-                // editor extensions, tool configs — never user-facing duplicate
-                // documents. Pruning the whole subtree keeps a content-oriented
-                // scan focused on real user files.
                 if target.skipHiddenDirectories && ScanTarget.isHiddenEntry(fileURL) {
                     let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
                     if isDir {
@@ -114,15 +89,11 @@ public actor TargetedScanner {
                     continue
                 }
 
-                // Owned by a more specific category? Prune the whole subtree.
                 if target.isExcludedPath(fileURL) {
                     enumerator.skipDescendants()
                     continue
                 }
 
-                // Excluded by name? Prune the whole subtree if it's a directory
-                // (e.g. com.spotify.client/* — deleting Spotify's cache wipes
-                // the user's offline music) and skip the item itself.
                 if matchesExcludePattern(url: fileURL, target: target) {
                     let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
                     if isDir {
@@ -199,11 +170,7 @@ public actor TargetedScanner {
 
     private static func makeFileItem(from url: URL, keys: [URLResourceKey]) -> FileItem? {
         guard let values = try? url.resourceValues(forKeys: Set(keys)) else { return nil }
-        // (st_dev, st_ino) let DuplicateDetection collapse hard links. If lstat
-        // fails (transient permission/race), keep the file with inode/deviceID 0
-        // rather than dropping it from the scan: 0 is treated as "unknown, never
-        // a hard-link match", so the file still shows up for the six non-dedup
-        // modules and is simply never collapsed as a duplicate.
+
         var metadata = stat()
         let hasIdentity = lstat(url.path(percentEncoded: false), &metadata) == 0
 

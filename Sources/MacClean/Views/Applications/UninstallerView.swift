@@ -4,9 +4,9 @@ import MacCleanKit
 
 struct UninstallerView: View {
     @Environment(AppState.self) private var appState
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
     @State private var apps: [AppInfo] = []
     @State private var selectedApp: AppInfo?
+    @State private var checkedAppIDs: Set<UUID> = []
     @State private var associatedFiles: [FileItem] = []
     @State private var selectedFiles: Set<URL> = []
     @State private var isLoading = true
@@ -15,35 +15,64 @@ struct UninstallerView: View {
     @State private var isResetting = false
     @State private var appPendingUninstall: AppInfo?
     @State private var appPendingReset: AppInfo?
+    @State private var showBatchConfirm = false
     @State private var uninstallError: String?
     @State private var resetError: String?
     @State private var filter: AppFilter = .all
     @State private var searchText = ""
 
     enum AppFilter: String, CaseIterable {
-        case all = "全部"
-        case unused = "未使用"
-        case thirdParty = "第三方"
+        case all = "All"
+        case unused = "Unused"
+        case thirdParty = "Third-party"
 
-        var label: String { L10n.tr(rawValue) }
+        var label: String { String(localized: rawValue) }
     }
 
     private let discovery = AppDiscovery()
     private let pathFinder = AppPathFinder()
     private let safetyGuard = SafetyGuard()
 
+    private var checkedApps: [AppInfo] {
+        apps.filter { checkedAppIDs.contains($0.id) && !safetyGuard.isProtectedApp($0.bundleIdentifier) }
+    }
+
+    private var checkedTotalSize: UInt64 {
+        checkedApps.reduce(0) { $0 + $1.size }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("卸载器", "Uninstaller", "Удаление приложений"))
-                        .font(.system(size: 22, weight: .bold))
+                    Text("Uninstaller")
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr("彻底移除应用及其残留文件", "Completely remove apps and their leftover files", "Полностью удаляйте приложения и оставшиеся после них файлы"))
+                    Text("Completely remove apps and their leftover files")
                         .font(.system(size: 12))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
+                if !isLoading && !filteredApps.isEmpty {
+                    HStack(spacing: 8) {
+                        Button("Select All") {
+                            for app in filteredApps where !safetyGuard.isProtectedApp(app.bundleIdentifier) {
+                                checkedAppIDs.insert(app.id)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .keyboardShortcut("a", modifiers: .command)
+
+                        Button("Deselect All") {
+                            checkedAppIDs.removeAll()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(checkedAppIDs.isEmpty)
+                        .keyboardShortcut("a", modifiers: [.command, .option])
+                    }
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -53,18 +82,17 @@ struct UninstallerView: View {
                 VStack(spacing: 12) {
                     ProgressView()
                         .controlSize(.large)
-                        .tint(.primary)
-                    Text(L10n.tr("正在发现已安装应用...", "Discovering installed apps...", "Поиск установленных приложений..."))
+                    Text("Discovering installed apps...")
                         .font(.system(size: 13))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             } else {
                 HStack(spacing: 10) {
-                    TextField(L10n.tr("搜索应用...", "Search apps...", "Поиск приложений..."), text: $searchText)
+                    TextField("Search apps...", text: $searchText)
                         .textFieldStyle(.roundedBorder)
 
-                    Picker(L10n.tr("筛选", "Filter", "Фильтр"), selection: $filter) {
+                    Picker("Filter", selection: $filter) {
                         ForEach(AppFilter.allCases, id: \.self) { f in
                             Text(f.label).tag(f)
                         }
@@ -76,87 +104,129 @@ struct UninstallerView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 10)
 
-                HSplitView {
-                    appList
-                        .frame(minWidth: 240)
+                VStack(spacing: 0) {
+                    HSplitView {
+                        appList
+                            .frame(minWidth: 260)
 
-                    if let app = selectedApp {
-                        appDetailView(app)
-                            .frame(minWidth: 280)
-                    } else {
-                        VStack {
-                            Spacer()
-                            Text(L10n.tr("选择一个应用以查看相关文件", "Select an app to see its files", "Выберите приложение, чтобы увидеть связанные с ним файлы"))
-                                .foregroundStyle(.primary.opacity(0.4))
-                                .font(.system(size: 13))
-                            Spacer()
+                        if let app = selectedApp {
+                            appDetailView(app)
+                                .frame(minWidth: 300)
+                                .background(Color.white)
+                        } else {
+                            VStack {
+                                Spacer()
+                                Text("Select an app to see its files")
+                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 13))
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.white)
                         }
-                        .frame(maxWidth: .infinity)
+                    }
+
+                    if !checkedApps.isEmpty {
+                        Divider()
+                        HStack(spacing: 12) {
+                            Text("\(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(checkedTotalSize))")
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button("Deselect All") {
+                                checkedAppIDs.removeAll()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
+
+                            Button("Uninstall (\(checkedApps.count))") {
+                                showBatchConfirm = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
+                            .controlSize(.regular)
+                            .disabled(isUninstalling)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(height: 48)
+                        .background(Color(white: 0.975))
                     }
                 }
-                .background {
-                    if removeBackgroundColors { Color.clear }
-                    else { Rectangle().fill(.ultraThinMaterial) }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                )
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
         }
+        .background(Color.white)
         .task { await loadApps() }
+        .respondsToModuleShortcuts(
+            onScan: { Task { await loadApps() } },
+            onClean: {
+                if !checkedApps.isEmpty {
+                    showBatchConfirm = true
+                } else if let app = selectedApp, !safetyGuard.isProtectedApp(app.bundleIdentifier) {
+                    appPendingUninstall = app
+                }
+            },
+            canScan: !isLoading && !isUninstalling,
+            canClean: !checkedApps.isEmpty || (selectedApp != nil && !safetyGuard.isProtectedApp(selectedApp?.bundleIdentifier ?? ""))
+        )
         .onChange(of: appState.pendingUninstallerAppPath) { _, path in
             guard let path else { return }
             selectPendingApp(path: path)
         }
-        // Attached to the top-level body (not the conditionally-rendered
-        // detail pane) so the confirmation can't be torn down mid-present
-        // when selectedApp changes. `appPendingUninstall` is the anchor.
-        .alert(L10n.tr("将 \(appPendingUninstall?.name ?? "此应用") 移到废纸篓？", "Move \(appPendingUninstall?.name ?? "this app") to the Trash?", "Переместить \(appPendingUninstall?.name ?? "это приложение") в Корзину?"),
+        .alert("Move \(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s") to the Trash?",
+               isPresented: $showBatchConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Move to Trash", role: .destructive) {
+                uninstallBatch(checkedApps)
+            }
+        } message: {
+            Text("Selected applications and their associated support files will be moved to the Trash.")
+        }
+        .alert("Move \(appPendingUninstall?.name ?? "this app") to the Trash?",
                isPresented: Binding(get: { appPendingUninstall != nil },
                                     set: { if !$0 { appPendingUninstall = nil } }),
                presenting: appPendingUninstall) { app in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { appPendingUninstall = nil }
-            Button(L10n.tr("移到废纸篓", "Move to Trash", "Переместить в Корзину"), role: .destructive) {
+            Button("Cancel", role: .cancel) { appPendingUninstall = nil }
+            Button("Move to Trash", role: .destructive) {
                 let target = app; appPendingUninstall = nil; uninstall(target)
             }
         } message: { app in
-            Text(L10n.tr("\(app.name) 及其关联文件将被移到废纸篓。如有需要，你可以从废纸篓恢复。", "\(app.name) and its associated files will be moved to the Trash. You can restore them from the Trash if needed.", "Приложение \(app.name) и связанные с ним файлы будут перемещены в Корзину. При необходимости их можно восстановить."))
+            Text("\(app.name) and its associated files will be moved to the Trash. You can restore them from the Trash if needed.")
         }
-        .alert(L10n.tr("卸载", "Uninstall"),
+        .alert("Uninstall",
                isPresented: Binding(get: { uninstallError != nil },
                                     set: { if !$0 { uninstallError = nil } })) {
-            Button(L10n.tr("好", "OK"), role: .cancel) { uninstallError = nil }
+            Button("OK", role: .cancel) { uninstallError = nil }
         } message: {
             Text(uninstallError ?? "")
         }
         .alert(
-            L10n.tr(
-                "将 \(appPendingReset?.name ?? "此应用") 恢复为默认设置？",
-                "Reset \(appPendingReset?.name ?? "this app") to defaults?",
-                "Сбросить \(appPendingReset?.name ?? "это приложение") к настройкам по умолчанию?"
-            ),
+            "Reset \(appPendingReset?.name ?? "this app") to defaults?",
             isPresented: Binding(get: { appPendingReset != nil },
                                  set: { if !$0 { appPendingReset = nil } }),
             presenting: appPendingReset
         ) { app in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { appPendingReset = nil }
-            Button(L10n.tr("恢复默认", "Reset to Defaults", "Сбросить настройки"), role: .destructive) {
+            Button("Cancel", role: .cancel) { appPendingReset = nil }
+            Button("Reset to Defaults", role: .destructive) {
                 let target = app; appPendingReset = nil; resetToDefaults(target)
             }
         } message: { app in
             let plan = AppReset.plan(app: app, associatedFiles: associatedFiles, selectedFiles: selectedFiles)
             let count = plan?.items.count ?? 0
             let bytes = plan?.items.reduce(0 as UInt64) { $0 + $1.size } ?? 0
-            Text(L10n.tr(
-                "将把 \(app.name) 的缓存、偏好设置和保存的状态（\(count) 项，\(FileSizeFormatter.format(bytes))）移到废纸篓。应用本身会保留。若应用正在运行，请先退出，否则它可能会重新写入这些文件。",
-                "Caches, preferences, and saved state for \(app.name) (\(count) items, \(FileSizeFormatter.format(bytes))) will be moved to the Trash. The app stays installed. Quit the app first if it is running, or it may rewrite these files.",
-                "Кэш, настройки и сохранённое состояние \(app.name) (\(count) \(L10n.russianPlural(count, one: "объект", few: "объекта", many: "объектов")), \(FileSizeFormatter.format(bytes))) будут перемещены в Корзину. Само приложение останется. Если оно запущено, сначала закройте его — иначе файлы могут быть записаны заново."
-            ))
+            Text("Caches, preferences, and saved state for \(app.name) (\(count) items, \(FileSizeFormatter.format(bytes))) will be moved to the Trash. The app stays installed. Quit the app first if it is running, or it may rewrite these files.")
         }
-        .alert(L10n.tr("恢复默认", "Reset to Defaults", "Сброс настроек"),
+        .alert("Reset to Defaults",
                isPresented: Binding(get: { resetError != nil },
                                     set: { if !$0 { resetError = nil } })) {
-            Button(L10n.tr("好", "OK"), role: .cancel) { resetError = nil }
+            Button("OK", role: .cancel) { resetError = nil }
         } message: {
             Text(resetError ?? "")
         }
@@ -181,42 +251,59 @@ struct UninstallerView: View {
     private var appList: some View {
         List {
             ForEach(filteredApps) { app in
-                Button {
-                    selectedApp = app
-                    loadAssociatedFiles(for: app)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.path.path(percentEncoded: false)))
-                            .resizable()
-                            .frame(width: 24, height: 24)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(app.name)
-                                .font(.system(size: 13, weight: .medium))
-                            Text(app.formattedSize)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                let isProtected = safetyGuard.isProtectedApp(app.bundleIdentifier)
+                HStack(spacing: 8) {
+                    Toggle("", isOn: Binding(
+                        get: { checkedAppIDs.contains(app.id) },
+                        set: { on in
+                            if on { checkedAppIDs.insert(app.id) }
+                            else { checkedAppIDs.remove(app.id) }
                         }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .disabled(isProtected)
 
-                        Spacer()
+                    Button {
+                        selectedApp = app
+                        loadAssociatedFiles(for: app)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: app.path.path(percentEncoded: false)))
+                                .resizable()
+                                .frame(width: 24, height: 24)
 
-                        if app.isUnused {
-                            Text(L10n.tr("未使用", "Unused", "Не используется"))
-                                .font(.system(size: 10))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(.orange.opacity(0.2))
-                                .clipShape(Capsule())
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(app.name)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                Text(app.formattedSize)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            if app.isUnused {
+                                Text("Unused")
+                                    .font(.system(size: 10))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(Color.secondary.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 .padding(.vertical, 2)
-                .background(selectedApp?.id == app.id ? Color.accentColor.opacity(0.15) : .clear)
+                .padding(.horizontal, 4)
+                .background(selectedApp?.id == app.id ? Color(nsColor: .systemBlue).opacity(0.12) : .clear)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
-        .listStyle(.sidebar)
+        .listStyle(.inset)
     }
 
     private func appDetailView(_ app: AppInfo) -> some View {
@@ -236,55 +323,61 @@ struct UninstallerView: View {
                 Spacer()
 
                 if isUninstalling || isResetting {
-                    // In-progress feedback: the button is gone (can't be
-                    // re-tapped) and a spinner shows the work is happening.
                     ProgressView()
                         .controlSize(.small)
                     Text(isResetting
-                         ? L10n.tr("正在恢复默认…", "Resetting…", "Сброс…")
-                         : L10n.tr("正在卸载…", "Uninstalling…", "Удаление…"))
+                         ? String(localized: "Resetting…")
+                         : String(localized: "Uninstalling…"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 } else {
                     if safetyGuard.isProtectedApp(app.bundleIdentifier) {
-                        Text(L10n.tr("受保护的系统应用——无法移除", "Protected system app — can't be removed", "Защищённое системное приложение — удалить нельзя"))
+                        Text("Protected system app — can't be removed")
                             .font(.system(size: 12))
-                            .foregroundStyle(.primary.opacity(0.6))
+                            .foregroundStyle(.secondary)
                     } else {
-                        Button(L10n.tr("卸载", "Uninstall", "Удалить")) { appPendingUninstall = app }
+                        Button("Uninstall") { appPendingUninstall = app }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
                             .controlSize(.small)
                     }
 
-                    Button(L10n.tr("恢复默认", "Reset to Defaults", "Сбросить настройки")) {
+                    Button("Reset to Defaults") {
                         appPendingReset = app
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(AppReset.plan(app: app, associatedFiles: associatedFiles, selectedFiles: selectedFiles) == nil)
-                    .help(L10n.tr(
-                        "清除缓存、偏好设置和保存的状态，保留应用本身。",
-                        "Clears caches, preferences, and saved state. The app stays installed.",
-                        "Очищает кэш, настройки и сохранённое состояние. Само приложение остаётся."
-                    ))
+                    .help("Clears caches, preferences, and saved state. The app stays installed.")
                 }
             }
             .padding()
 
             if isLoadingFiles {
                 Spacer()
-                ProgressView(L10n.tr("正在查找关联文件...", "Finding associated files...", "Поиск связанных файлов..."))
+                ProgressView("Finding associated files...")
                     .tint(.secondary)
                     .font(.system(size: 12))
                 Spacer()
             } else if !associatedFiles.isEmpty {
                 let totalSize = associatedFiles.reduce(0 as UInt64) { $0 + $1.size }
-                Text(L10n.tr("\(associatedFiles.count) 个关联文件（\(FileSizeFormatter.format(totalSize))）", "\(associatedFiles.count) associated files (\(FileSizeFormatter.format(totalSize)))", "\(associatedFiles.count) \(L10n.russianPlural(associatedFiles.count, one: "связанный файл", few: "связанных файла", many: "связанных файлов")) (\(FileSizeFormatter.format(totalSize)))"))
+                HStack {
+                    Text("\(associatedFiles.count) associated files (\(FileSizeFormatter.format(totalSize)))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Select All") {
+                        selectedFiles = Set(associatedFiles.map(\.url))
+                    }
+                    .buttonStyle(.borderless)
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
+                    Button("None") {
+                        selectedFiles.removeAll()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11))
+                }
+                .padding(.horizontal)
 
                 List(associatedFiles) { file in
                     HStack {
@@ -319,7 +412,7 @@ struct UninstallerView: View {
                 .listStyle(.inset)
             } else {
                 Spacer()
-                Text(L10n.tr("未找到关联文件", "No associated files found", "Связанные файлы не найдены"))
+                Text("No associated files found")
                     .foregroundStyle(.secondary)
                     .font(.system(size: 12))
                 Spacer()
@@ -343,11 +436,7 @@ struct UninstallerView: View {
                 engine: appState.cleaningEngine
             )
             if !result.errors.isEmpty {
-                resetError = L10n.tr(
-                    "恢复 \(app.name) 的默认设置时部分项目失败（\(result.errors.count) 个）。请确认应用已退出后重试。",
-                    "Some items couldn't be reset for \(app.name) (\(result.errors.count)). Quit the app if it is running and try again.",
-                    "Не удалось сбросить часть данных \(app.name) (\(result.errors.count)). Закройте приложение, если оно запущено, и повторите попытку."
-                )
+                resetError = "Some items couldn't be reset for \(app.name) (\(result.errors.count)). Quit the app if it is running and try again."
             }
             loadAssociatedFiles(for: app)
             isResetting = false
@@ -356,6 +445,7 @@ struct UninstallerView: View {
 
     private func loadApps() async {
         apps = await discovery.discoverApps()
+        checkedAppIDs = checkedAppIDs.intersection(Set(apps.map(\.id)))
         isLoading = false
         if let path = appState.pendingUninstallerAppPath {
             selectPendingApp(path: path)
@@ -363,8 +453,6 @@ struct UninstallerView: View {
     }
 
     private func selectPendingApp(path: String) {
-        // Consume the request either way, so a stale path (app removed since
-        // Unused Apps listed it) can't select something on a later visit.
         appState.pendingUninstallerAppPath = nil
         guard let match = apps.first(where: {
             $0.path.path(percentEncoded: false) == path
@@ -386,21 +474,14 @@ struct UninstallerView: View {
     }
 
     private func uninstall(_ app: AppInfo) {
-        guard !isUninstalling else { return }   // ignore double-taps
-
-        // Build the validated plan. Refuses protected system apps (bundle-id
-        // check that SafetyGuard.validatePath can't do) and routes the app
-        // bundle through the same validated, logged, trash-first engine as its
-        // leftovers, instead of a raw try? trashItem that skipped every guard.
+        guard !isUninstalling else { return }
         guard let plan = AppUninstaller.plan(
             app: app,
             associatedFiles: associatedFiles,
             selectedFiles: selectedFiles,
             safetyGuard: safetyGuard
         ) else {
-            uninstallError = L10n.tr(
-                "\(app.name) 是受保护的系统应用，无法移除。",
-                "\(app.name) is a protected system app and can't be removed.")
+            uninstallError = "\(app.name) is a protected system app and can't be removed."
             return
         }
 
@@ -411,13 +492,47 @@ struct UninstallerView: View {
                 selectedItems: plan.selection,
                 engine: appState.cleaningEngine
             )
-            // Surface failures instead of silently swallowing them: if the
-            // bundle or a leftover couldn't be removed, tell the user.
             if !result.errors.isEmpty {
-                uninstallError = L10n.tr(
-                    "移除 \(app.name) 时部分项目失败（\(result.errors.count) 个）。请查看该应用是否仍在，如仍在可重试。",
-                    "Some items couldn't be removed while uninstalling \(app.name) (\(result.errors.count)). Check whether the app is still there and try again.")
+                uninstallError = "Some items couldn't be removed while uninstalling \(app.name) (\(result.errors.count)). Check whether the app is still there and try again."
             }
+            checkedAppIDs.remove(app.id)
+            await loadApps()
+            isUninstalling = false
+            selectedApp = nil
+            associatedFiles = []
+        }
+    }
+
+    private func uninstallBatch(_ targets: [AppInfo]) {
+        guard !isUninstalling, !targets.isEmpty else { return }
+        isUninstalling = true
+        Task {
+            var allItems: [FileItem] = []
+            var allSelection: Set<URL> = []
+            for app in targets {
+                let files = pathFinder.findAssociatedFiles(for: app)
+                let fileURLs = Set(files.map(\.url))
+                if let plan = AppUninstaller.plan(
+                    app: app,
+                    associatedFiles: files,
+                    selectedFiles: fileURLs,
+                    safetyGuard: safetyGuard
+                ) {
+                    allItems.append(contentsOf: plan.items)
+                    allSelection.formUnion(plan.selection)
+                }
+            }
+            if !allItems.isEmpty {
+                let result = await CleanActions.executeUserClean(
+                    items: allItems,
+                    selectedItems: allSelection,
+                    engine: appState.cleaningEngine
+                )
+                if !result.errors.isEmpty {
+                    uninstallError = "Some items couldn't be removed (\(result.errors.count))."
+                }
+            }
+            checkedAppIDs.removeAll()
             await loadApps()
             isUninstalling = false
             selectedApp = nil

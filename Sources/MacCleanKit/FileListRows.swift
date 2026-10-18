@@ -1,23 +1,14 @@
 import Foundation
 
-/// One row of the scan-results table: either a category header or a file.
-///
-/// The table is AppKit (`NSTableView`) because SwiftUI's `List` diffs every
-/// row on each update and beachballs at tens of thousands of rows. The table
-/// renders from this flat, value-typed row array; equality on the array is
-/// the entire "did anything change" check, so the row carries everything a
-/// cell displays (selection state, and whether the owning app is running).
 public enum FileListRow: Equatable, Sendable {
     case header(FileListHeader)
     case item(FileItem, isSelected: Bool, appRunning: Bool)
 }
 
-/// Tri-state selection for a category's select-all checkbox.
 public enum SelectionState: Sendable, Equatable {
     case none, mixed, all
 }
 
-/// Display model for a category header row.
 public struct FileListHeader: Equatable, Sendable {
     public let category: ScanCategory
     public let totalSize: UInt64
@@ -42,7 +33,6 @@ public struct FileListHeader: Equatable, Sendable {
         self.isExpanded = isExpanded
     }
 
-    /// Tri-state for the header checkbox: none / mixed / all selected.
     public var selection: SelectionState {
         if selectedCount <= 0 { return .none }
         if selectedCount >= fileCount { return .all }
@@ -51,15 +41,7 @@ public struct FileListHeader: Equatable, Sendable {
 }
 
 public enum FileListRows {
-    /// Flatten scan results into table rows: each category contributes a
-    /// header, then (if expanded) its items in the order given. `runningBundleIDs`
-    /// (the currently-running apps' bundle ids) lets each item flag whether the
-    /// app that owns it is open, so the UI can warn before clearing a live cache.
-    /// `appRunningURLs` is the precomputed set of item URLs whose owning app is
-    /// running (see `AppCacheOwnership.runningOwnedURLs`). flatten runs on every
-    /// render (e.g. each selection toggle), so it must stay O(items) with only
-    /// cheap set lookups — the expensive path→bundle-id work is done once,
-    /// outside this hot path.
+
     public static func flatten(
         results: [ScanResult],
         isExpanded: (ScanCategory) -> Bool,

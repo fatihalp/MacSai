@@ -1,17 +1,12 @@
 import SwiftUI
+import AppKit
 import MacCleanKit
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
-
-    /// Module views the user has visited at least once. Once a view is here it
-    /// stays in the hierarchy (hidden via opacity, NOT destroyed) when the user
-    /// switches tabs — so in-flight scans keep running and large result lists
-    /// don't re-render on every switch (fixes the switch-back lag and the
-    /// mid-scan "cancel"). Views are created lazily on first visit so we don't
-    /// front-load every module's `.task` (app discovery, login items, …) at
-    /// launch.
     @State private var visited: Set<SidebarItem> = []
+    @State private var history: [SidebarItem] = []
+    @State private var historyIndex: Int = -1
     @State private var updateCoordinator = UpdateCoordinator()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -19,72 +14,147 @@ struct ContentView: View {
         @Bindable var state = appState
 
         NavigationSplitView {
-            SidebarView(selection: $state.selectedSidebarItem)
-                // The sidebar is the app's primary navigation and is always
-                // shown, so the toolbar's collapse-sidebar button is just
-                // dead weight (#21.4). Remove it.
-                .toolbar(removing: .sidebarToggle)
+            SidebarView(
+                selection: Binding(
+                    get: { state.selectedCategory },
+                    set: { state.selectCategory($0) }
+                ),
+                onSelectCategory: { category in
+                    state.selectCategory(category)
+                }
+            )
+            .toolbar(removing: .sidebarToggle)
         } detail: {
-            ZStack {
-                if let item = appState.selectedSidebarItem {
-                    GradientBackgroundView(theme: item.theme)
-                        .ignoresSafeArea()
-                }
+            if state.selectedCategory == .smartScan {
+                SmartScanView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
+            } else if state.selectedCategory == .settings {
+                SettingsPageView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
+            } else if let activeItem = appState.selectedSidebarItem {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Button {
+                            appState.selectCategory(state.selectedCategory)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(state.selectedCategory.title)
+                                    .font(.system(size: 12.5, weight: .medium))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color(nsColor: .systemBlue))
 
-                // Keep every visited module view alive across tab switches:
-                // show the selected one, hide (don't tear down) the rest.
-                ForEach(SidebarItem.allCases, id: \.self) { item in
-                    // Render if currently selected (so the first frame is never
-                    // blank) or previously visited (kept alive in the background).
-                    if visited.contains(item) || item == appState.selectedSidebarItem {
-                        let isSelected = item == appState.selectedSidebarItem
-                        moduleView(for: item)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(isSelected ? 1 : 0)
-                            .allowsHitTesting(isSelected)
-                            .accessibilityHidden(!isSelected)
-                            .environment(\.moduleIsSelected, isSelected)
+                        Text("/")
+                            .foregroundStyle(.tertiary)
+                            .font(.system(size: 11))
+
+                        Text(activeItem.title)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Menu {
+                            ForEach(state.selectedCategory.subItems) { item in
+                                Button {
+                                    appState.selectItem(item)
+                                } label: {
+                                    Label(item.title, systemImage: item.icon)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Switch")
+                                    .font(.system(size: 11.5))
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(nsColor: .controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
                     }
-                }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
 
-                if appState.selectedSidebarItem == nil {
-                    Text(L10n.tr("请从侧边栏选择一个模块", "Select a module from the sidebar", "Выберите модуль на боковой панели"))
-                        .foregroundStyle(.secondary)
-                }
+                    Divider()
 
-                // Centered title, drawn as plain content in the title bar
-                // region. Not a ToolbarItem: macOS 26 wraps toolbar items in
-                // a Liquid Glass capsule we don't want, and the unified
-                // toolbar pins its own title to the leading edge (system
-                // title hidden via TitleBarConfigurator; the window keeps
-                // its real title for Mission Control/VoiceOver).
-                VStack {
-                    Text(MCConstants.appName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.92))
-                        .padding(.top, 16)
-                    Spacer()
+                    ZStack {
+                        Color.white
+                            .ignoresSafeArea()
+
+                        ForEach(SidebarItem.allCases, id: \.self) { item in
+                            if visited.contains(item) || item == activeItem {
+                                let isSelected = item == activeItem
+                                moduleView(for: item)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .opacity(isSelected ? 1 : 0)
+                                    .allowsHitTesting(isSelected)
+                                    .accessibilityHidden(!isSelected)
+                                    .environment(\.moduleIsSelected, isSelected)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
+                .background(Color.white)
+            } else {
+                CategoryHubView(category: state.selectedCategory)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
             }
-            .toolbarBackground(.hidden, for: .windowToolbar)
         }
-        .background(TitleBarConfigurator())
-        // Empty: the system-drawn title pins to the leading edge and on
-        // macOS 26 ignores titleVisibility re-asserts while SwiftUI owns a
-        // non-empty title. The visible (centered) title is drawn by the
-        // detail-pane overlay; the real NSWindow.title is set by
-        // TitleBarConfigurator so Mission Control/VoiceOver keep the name.
-        .navigationTitle("")
-        // Mark the current selection visited (runs initially too) so its view
-        // is created on first visit and then retained.
+        .navigationTitle(
+            state.selectedCategory == .smartScan ? MCConstants.appName :
+            (appState.selectedSidebarItem?.title ?? state.selectedCategory.title)
+        )
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                ControlGroup {
+                    Button {
+                        if historyIndex > 0 {
+                            historyIndex -= 1
+                            appState.selectItem(history[historyIndex])
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .disabled(historyIndex <= 0)
+
+                    Button {
+                        if historyIndex + 1 < history.count {
+                            historyIndex += 1
+                            appState.selectItem(history[historyIndex])
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(historyIndex >= history.count - 1)
+                }
+            }
+        }
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in
-            if let newValue { visited.insert(newValue) }
+            guard let newValue else { return }
+            visited.insert(newValue)
+            if historyIndex >= 0 && historyIndex < history.count && history[historyIndex] == newValue {
+                return
+            }
+            if historyIndex + 1 < history.count {
+                history.removeSubrange((historyIndex + 1)...)
+            }
+            history.append(newValue)
+            historyIndex = history.count - 1
         }
-        // Automatic update check: ~3s after launch (never blocks startup) and
-        // again whenever the app becomes active. UpdateCoordinator throttles to
-        // once per day and one popup per session.
         .task {
             try? await Task.sleep(for: .seconds(3))
             await updateCoordinator.runCheckIfDue()
@@ -95,7 +165,7 @@ struct ContentView: View {
             }
         }
         .alert(
-            L10n.tr("发现新版本", "Update available", "Доступно обновление"),
+            "Update available",
             isPresented: Binding(
                 get: { updateCoordinator.pendingUpdate != nil },
                 set: { if !$0 { updateCoordinator.dismiss() } }
@@ -104,66 +174,26 @@ struct ContentView: View {
         ) { pending in
             switch pending.action {
             case .brewCommand:
-                Button(L10n.tr("复制升级命令", "Copy Upgrade Command", "Скопировать команду обновления")) {
+                Button("Copy Upgrade Command") {
                     updateCoordinator.performPrimaryAction()
                 }
             case .openRelease:
-                Button(L10n.tr("下载", "Download", "Загрузить")) {
+                Button("Download") {
                     updateCoordinator.performPrimaryAction()
                 }
             }
-            Button(L10n.tr("跳过此版本", "Skip This Version", "Пропустить эту версию")) {
+            Button("Skip This Version") {
                 updateCoordinator.skip(pending.version)
             }
-            Button(L10n.tr("稍后", "Later", "Позже"), role: .cancel) {
+            Button("Later", role: .cancel) {
                 updateCoordinator.dismiss()
             }
         } message: { pending in
             switch pending.action {
             case .brewCommand(let cmd):
-                Text(L10n.tr(
-                    "Mac Sai \(pending.version) 已发布。使用 Homebrew 升级：\n\(cmd)",
-                    "Mac Sai \(pending.version) is available. Upgrade with Homebrew:\n\(cmd)",
-                    "Доступна версия Mac Sai \(pending.version). Обновите через Homebrew:\n\(cmd)"))
+                Text("Mac Sai \(pending.version) is available. Upgrade with Homebrew:\n\(cmd)")
             case .openRelease:
-                Text(L10n.tr(
-                    "Mac Sai \(pending.version) 已发布。",
-                    "Mac Sai \(pending.version) is available.",
-                    "Доступна версия Mac Sai \(pending.version)."))
-            }
-        }
-    }
-
-    /// Hides the system-drawn window title once the view lands in a window.
-    /// The title string itself stays set (Mission Control, App Exposé, and
-    /// VoiceOver still read it); only the toolbar's leading-edge rendering
-    /// is suppressed, replaced by the centered principal toolbar item above.
-    private struct TitleBarConfigurator: NSViewRepresentable {
-        func makeNSView(context: Context) -> NSView { ConfiguringView() }
-
-        // Re-assert on every SwiftUI update. SwiftUI's navigationTitle is
-        // empty (it kept drawing a leading-edge title on macOS 26), so the
-        // real window title lives here: Mission Control, App Exposé, the
-        // Window menu, and VoiceOver read NSWindow.title; titleVisibility
-        // keeps it out of the toolbar where the overlay draws instead.
-        static func apply(to window: NSWindow?) {
-            guard let window else { return }
-            window.title = MCConstants.appName
-            window.titleVisibility = .hidden
-        }
-
-        func updateNSView(_ nsView: NSView, context: Context) {
-            DispatchQueue.main.async { [weak nsView] in
-                Self.apply(to: nsView?.window)
-            }
-        }
-
-        private final class ConfiguringView: NSView {
-            override func viewDidMoveToWindow() {
-                super.viewDidMoveToWindow()
-                DispatchQueue.main.async { [weak self] in
-                    TitleBarConfigurator.apply(to: self?.window)
-                }
+                Text("Mac Sai \(pending.version) is available.")
             }
         }
     }

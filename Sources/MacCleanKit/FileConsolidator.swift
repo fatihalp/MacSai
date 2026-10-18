@@ -47,14 +47,8 @@ public struct GroupConsolidation: Sendable {
     public init(master: URL, copies: [URL]) { self.master = master; self.copies = copies }
 }
 
-/// Replaces redundant duplicate copies with APFS clones of a master so every
-/// path keeps working while identical files stop costing N times their size.
-/// Pure and filesystem-only; no UI or global state.
 public enum FileConsolidator {
 
-    // MARK: Eligibility (step 1 of the swap; also powers the dry-run estimate)
-
-    /// nil means the pair passes every precondition for a clone-swap.
     public static func ineligibilityReason(master: URL, copy: URL,
                                            safetyGuard: SafetyGuard) -> SkipReason? {
         guard isRegularFile(master), isRegularFile(copy) else { return .notRegularFile }
@@ -86,16 +80,12 @@ public enum FileConsolidator {
             .volumeSupportsFileCloning ?? false
     }
 
-    // MARK: Single-pair clone-swap
-
-    /// Replace `copy` with an APFS clone of `master`, in place and atomically.
-    /// Any failed precondition or error leaves the original `copy` untouched.
     public static func consolidate(master: URL, copy: URL,
                                    safetyGuard: SafetyGuard = SafetyGuard()) -> ConsolidationOutcome {
         if let reason = ineligibilityReason(master: master, copy: copy, safetyGuard: safetyGuard) {
             return .skipped(reason)
         }
-        // Re-verify identical NOW (TOCTOU guard: the file may have changed since the scan).
+
         guard let masterHash = FileHashing.sha256(master),
               let copyHash = FileHashing.sha256(copy),
               masterHash == copyHash else {
@@ -105,15 +95,12 @@ public enum FileConsolidator {
         let fm = FileManager.default
         let copyPath = copy.path(percentEncoded: false)
 
-        // Snapshot metadata + allocated size (the reclaimed figure).
         let attrs = try? fm.attributesOfItem(atPath: copyPath)
         let perms = attrs?[.posixPermissions] as? NSNumber
         let mtime = attrs?[.modificationDate] as? Date
         let reclaimed = UInt64((try? copy.resourceValues(
             forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
 
-        // Clone master into a unique hidden temp in the copy's own directory
-        // (same volume, so the later rename is atomic).
         let tempURL = copy.deletingLastPathComponent()
             .appendingPathComponent(".\(copy.lastPathComponent).consolidate-\(UUID().uuidString)")
         let tempPath = tempURL.path(percentEncoded: false)
@@ -122,19 +109,16 @@ public enum FileConsolidator {
         }
         guard cloned else { return .failed("clonefile failed for \(copyPath)") }
 
-        // Verify the clone byte-for-byte before we swap it in.
         guard FileHashing.sha256(tempURL) == masterHash else {
             try? fm.removeItem(at: tempURL)
             return .failed("clone verification failed for \(copyPath)")
         }
 
-        // Restore the copy's own permissions + mtime onto the clone.
         var restore: [FileAttributeKey: Any] = [:]
         if let perms { restore[.posixPermissions] = perms }
         if let mtime { restore[.modificationDate] = mtime }
         if !restore.isEmpty { try? fm.setAttributes(restore, ofItemAtPath: tempPath) }
 
-        // Atomic swap (same volume => rename is atomic). Original stays intact on failure.
         let swapped = tempPath.withCString { t in copyPath.withCString { c in rename(t, c) == 0 } }
         guard swapped else {
             try? fm.removeItem(at: tempURL)
@@ -143,10 +127,6 @@ public enum FileConsolidator {
         return .reclaimed(bytes: reclaimed)
     }
 
-    // MARK: Batch + estimate
-
-    /// Consolidate every selected copy in each group (master = the kept copy),
-    /// aggregating results. Honours cancellation between items.
     public static func consolidate(groups: [GroupConsolidation],
                                    safetyGuard: SafetyGuard = SafetyGuard()) -> ConsolidationSummary {
         var summary = ConsolidationSummary()
@@ -167,8 +147,6 @@ public enum FileConsolidator {
         return summary
     }
 
-    /// Cheap dry-run: sum the allocated size of copies that pass the step-1
-    /// eligibility checks. Writes nothing; used for the confirmation preview.
     public static func estimateReclaimable(groups: [GroupConsolidation],
                                            safetyGuard: SafetyGuard = SafetyGuard()) -> UInt64 {
         var total: UInt64 = 0

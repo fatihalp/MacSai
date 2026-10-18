@@ -2,10 +2,6 @@ import SwiftUI
 import AppKit
 import MacCleanKit
 
-/// In-app viewer for `~/Library/Logs/MacClean/operations.log`. Surfaced
-/// from the completion screen so users can read the [ERROR] lines that
-/// explain why some items couldn't be cleaned — and copy them onto a
-/// GitHub issue without leaving the app.
 struct LogViewerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var content: String = ""
@@ -25,20 +21,18 @@ struct LogViewerView: View {
         .onAppear { loadLog() }
     }
 
-    // MARK: - Sections
-
     private var header: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.tr("活动日志", "Activity Log", "Журнал операций"))
+                Text("Activity Log")
                     .font(.system(size: 18, weight: .semibold))
-                Text(L10n.tr("~/Library/Logs/MacClean/operations.log — 30 天后自动清理", "~/Library/Logs/MacClean/operations.log — pruned after 30 days", "~/Library/Logs/MacClean/operations.log — удаляется через 30 дней"))
+                Text("~/Library/Logs/MacClean/operations.log — pruned after 30 days")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
             Spacer()
-            Toggle(L10n.tr("仅显示错误", "Errors only", "Только ошибки"), isOn: $errorsOnly)
+            Toggle("Errors only", isOn: $errorsOnly)
                 .toggleStyle(.switch)
                 .controlSize(.small)
         }
@@ -53,8 +47,8 @@ struct LogViewerView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(.secondary)
                     Text(errorsOnly
-                         ? L10n.tr("没有记录到错误。", "No errors logged.", "Ошибок не зарегистрировано.")
-                         : L10n.tr("日志为空。尚未执行过清理。", "Log is empty. Nothing has been cleaned yet.", "Журнал пуст. Очистка ещё не выполнялась."))
+                         ? String(localized: "No errors logged.")
+                         : String(localized: "Log is empty. Nothing has been cleaned yet."))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -76,29 +70,27 @@ struct LogViewerView: View {
             Button {
                 revealInFinder()
             } label: {
-                Label(L10n.tr("在 Finder 中显示", "Reveal in Finder", "Показать в Finder"), systemImage: "folder")
+                Label("Reveal in Finder", systemImage: "folder")
             }
             .buttonStyle(.bordered)
 
             Button {
                 copyAll()
             } label: {
-                Label(copied ? L10n.tr("已复制", "Copied", "Скопировано") : L10n.tr("复制全部", "Copy All", "Скопировать всё"),
+                Label(copied ? "Copied" : "Copy All",
                       systemImage: copied ? "checkmark" : "doc.on.doc")
             }
             .buttonStyle(.bordered)
             .disabled(displayedText.isEmpty)
-            .help(L10n.tr("将当前内容复制到剪贴板，可粘贴到 GitHub issue 中", "Copy what you see to the clipboard — paste into a GitHub issue", "Скопировать показанный текст в буфер обмена для вставки в отчёт на GitHub"))
+            .help("Copy what you see to the clipboard — paste into a GitHub issue")
 
             Spacer()
 
-            Button(L10n.tr("完成", "Done", "Готово")) { dismiss() }
+            Button("Done") { dismiss() }
                 .keyboardShortcut(.defaultAction)
         }
         .padding(14)
     }
-
-    // MARK: - Data
 
     private var displayedText: String {
         if !errorsOnly { return content }

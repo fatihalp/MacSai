@@ -1,7 +1,5 @@
 import Foundation
 
-/// A third-party preference pane, Internet Plug-In, or Safari-family extension
-/// (issue #53). Paths are the source of truth; names come from Info.plist.
 public struct ManagedExtension: Hashable, Sendable, Identifiable {
     public var id: String { path.path(percentEncoded: false) }
 
@@ -94,7 +92,6 @@ public struct PluginKitRecord: Hashable, Sendable {
     }
 }
 
-/// Path and vendor rules. No FileManager — callers pass already-resolved paths.
 public enum ManagedExtensionPolicy {
 
     public static let safariExtensionPoints: Set<String> = [
@@ -194,7 +191,7 @@ public enum ManagedExtensionPolicy {
             return .none
         }
         if isProtectedResolvedPath(resolved) { return .none }
-        // Symlink trap: only the resolved path may be trashed.
+
         if isAllowlistedUserRemovalPath(resolved, home: home) {
             return .trash
         }
@@ -219,7 +216,6 @@ public enum ManagedExtensionPolicy {
     }
 }
 
-/// Builds `ManagedExtension` rows from Info.plist dictionaries. No I/O.
 public enum ManagedExtensionCatalog {
 
     public static func item(
@@ -296,7 +292,6 @@ public enum ManagedExtensionCatalog {
     }
 }
 
-/// Parses `pluginkit -m -v` stdout. No Process — fixtures in tests.
 public enum PluginKitParser {
 
     public static func records(from output: String) -> [PluginKitRecord] {

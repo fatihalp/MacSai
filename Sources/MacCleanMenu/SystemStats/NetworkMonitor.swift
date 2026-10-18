@@ -64,17 +64,13 @@ public actor NetworkSpeedMonitor {
 
         var cursor: UnsafeMutablePointer<ifaddrs>? = firstAddr
         while let addr = cursor {
-            // Advance first so every `continue` below is safe (no infinite loop).
+
             defer { cursor = addr.pointee.ifa_next }
 
             let name = String(cString: addr.pointee.ifa_name)
 
-            // Only count physical interfaces (en0, en1, etc.)
             guard name.hasPrefix("en") || name.hasPrefix("utun") || name.hasPrefix("pdp_ip") else { continue }
 
-            // ifa_addr can legitimately be NULL for some interfaces; the old
-            // unconditional `.pointee` deref crashed the whole helper on those
-            // (issue #78). Guard before touching it.
             guard let ifaAddr = addr.pointee.ifa_addr else { continue }
             guard ifaAddr.pointee.sa_family == UInt8(AF_LINK) else { continue }
             guard let data = addr.pointee.ifa_data else { continue }

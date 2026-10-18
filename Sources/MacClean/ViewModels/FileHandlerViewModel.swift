@@ -3,9 +3,6 @@ import AppKit
 import SwiftUI
 import MacCleanKit
 
-/// View model for browsing and managing user-customised file-type and URL-scheme
-/// associations.  Every delete is preceded by a backup so all changes are
-/// reversible via the restore-history panel.
 @MainActor
 public final class FileHandlerViewModel: ObservableObject {
     @Published public var handlers: [HandlerEntry] = []
@@ -33,9 +30,7 @@ public final class FileHandlerViewModel: ObservableObject {
 
     public func loadHandlers() {
         isLoading = true
-        // MainActor Task: `self` stays on the main actor (never sent into a
-        // detached context, which tripped Swift 6 region isolation on CI). Only
-        // the plist read is offloaded, returning a Sendable [HandlerEntry].
+
         Task {
             let loaded = await Task.detached { LaunchServicesService.shared.loadHandlers() }.value
             handlers = loaded
@@ -43,23 +38,17 @@ public final class FileHandlerViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Delete (with auto-backup)
-
     public func deleteHandler(_ handler: HandlerEntry) {
         Task {
             do {
                 try await Task.detached { try LaunchServicesService.shared.deleteHandler(handler) }.value
                 loadHandlers()
             } catch {
-                errorMessage = L10n.tr("删除失败：\(error.localizedDescription)",
-                                       "Delete failed: \(error.localizedDescription)",
-                "Не удалось удалить: \(error.localizedDescription)")
+                errorMessage = "Delete failed: \(error.localizedDescription)"
                 showError = true
             }
         }
     }
-
-    // MARK: - Restore
 
     public func loadBackups() {
         backups = service.listBackups()
@@ -75,15 +64,11 @@ public final class FileHandlerViewModel: ObservableObject {
                 loadHandlers()
             } catch {
                 isRestoring = false
-                errorMessage = L10n.tr("还原失败：\(error.localizedDescription)",
-                                       "Restore failed: \(error.localizedDescription)",
-                "Не удалось восстановить: \(error.localizedDescription)")
+                errorMessage = "Restore failed: \(error.localizedDescription)"
                 showError = true
             }
         }
     }
-
-    // MARK: - App Info
 
     public func getAppInfo(for handler: HandlerEntry) -> (name: String, icon: NSImage)? {
         if let bid = handler.appBundleIdentifier {

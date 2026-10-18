@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import MacCleanKit
 
 struct SmartScanView: View {
@@ -7,19 +8,17 @@ struct SmartScanView: View {
     @State private var scanState: SmartScanState = .idle
     @State private var completedModules: [CompletedModule] = []
     @State private var currentModuleName: String = ""
-    @State private var selectedItems: Set<URL> = []
     @State private var cleanResults: [ScanResult] = []
     @State private var askForSupport = false
     @State private var showCleanConfirm = false
     @State private var cleanTask: Task<Void, Never>?
-    /// Watches `ScanCoordinator` while a Smart Scan runs. Cancelled by
-    /// `cancelScan()` so we stop polling and return to idle promptly (#3).
+
     @State private var scanWatchTask: Task<Void, Never>?
-    /// Cached selected-size total + a url -> size index backing it, so the
-    /// footer reads an O(1) value instead of an O(all-items) sum on every body
-    /// pass (the sidebar-switch beachball on large Smart Scans).
-    @State private var selectedCleanSize: UInt64 = 0
-    @State private var cleanSizeIndex: [URL: UInt64] = [:]
+
+    @State private var review: ReviewSelection?
+
+    @State private var showingReview = false
+    @State private var reviewSectionID: String?
 
     struct CompletedModule: Identifiable {
         let id = UUID()
@@ -40,16 +39,16 @@ struct SmartScanView: View {
 
     private static var moduleOrder: [(id: String, name: String, icon: String, group: String)] {
         [
-            ("systemJunk", L10n.tr("系统垃圾", "System Junk", "Системный мусор"), "trash.circle.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("mailAttachments", L10n.tr("邮件附件", "Mail Attachments", "Почтовые вложения"), "paperclip.circle.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("trashBins", L10n.tr("废纸篓", "Trash Bins", "Корзины"), "trash.fill", L10n.tr("清理", "Cleanup", "Очистка")),
-            ("malware", L10n.tr("恶意软件清理", "Malware Removal", "Удаление угроз"), "shield.lefthalf.filled", L10n.tr("防护", "Protection", "Защита")),
-            ("privacy", L10n.tr("隐私清理", "Privacy", "Конфиденциальность"), "hand.raised.fill", L10n.tr("防护", "Protection", "Защита")),
-            ("optimization", L10n.tr("优化", "Optimization", "Оптимизация"), "gauge.with.dots.needle.67percent", L10n.tr("加速", "Speed", "Ускорение")),
-            ("maintenance", L10n.tr("维护", "Maintenance", "Обслуживание"), "wrench.and.screwdriver", L10n.tr("加速", "Speed", "Ускорение")),
-            ("uninstaller", L10n.tr("卸载器", "Uninstaller", "Удаление приложений"), "xmark.app.fill", L10n.tr("应用", "Apps", "Приложения")),
-            ("updater", L10n.tr("应用更新", "Updater", "Обновления"), "arrow.triangle.2.circlepath", L10n.tr("应用", "Apps", "Приложения")),
-            ("largeOldFiles", L10n.tr("大文件与旧文件", "Large & Old Files", "Большие и старые файлы"), "doc.richtext.fill", L10n.tr("文件", "Files", "Файлы")),
+            ("systemJunk", String(localized: "System Junk"), "trash.circle.fill", String(localized: "Cleanup")),
+            ("mailAttachments", String(localized: "Mail Attachments"), "paperclip.circle.fill", String(localized: "Cleanup")),
+            ("trashBins", String(localized: "Trash Bins"), "trash.fill", String(localized: "Cleanup")),
+            ("malware", String(localized: "Malware Removal"), "shield.lefthalf.filled", String(localized: "Protection")),
+            ("privacy", String(localized: "Privacy"), "hand.raised.fill", String(localized: "Protection")),
+            ("optimization", String(localized: "Optimization"), "gauge.with.dots.needle.67percent", String(localized: "Speed")),
+            ("maintenance", String(localized: "Maintenance"), "wrench.and.screwdriver", String(localized: "Speed")),
+            ("uninstaller", String(localized: "Uninstaller"), "xmark.app.fill", String(localized: "Apps")),
+            ("updater", String(localized: "Updater"), "arrow.triangle.2.circlepath", String(localized: "Apps")),
+            ("largeOldFiles", String(localized: "Large & Old Files"), "doc.richtext.fill", String(localized: "Files")),
         ]
     }
 
@@ -71,19 +70,6 @@ struct SmartScanView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Recompute the selected-size total only when the results or selection
-        // actually change, NOT on every body pass. The footer reads
-        // `selectedCleanSize`, and SwiftUI re-evaluates this body during the
-        // layout pass on every sidebar switch; recomputing an O(all-items) sum
-        // (with a FileItem copy per item) there froze the switch for seconds on
-        // a large Smart Scan (confirmed by a main-thread sample).
-        .onChange(of: cleanResultsSignature, initial: true) { _, _ in
-            rebuildCleanSizeIndex()
-            recomputeSelectedCleanSize()
-        }
-        .onChange(of: selectedItems.count) { _, _ in
-            recomputeSelectedCleanSize()
-        }
         .respondsToModuleShortcuts(
             onScan: startScan,
             onClean: { showCleanConfirm = true },
@@ -94,55 +80,28 @@ struct SmartScanView: View {
                 }
             }(),
             canClean: {
-                if case .results = scanState { return !selectedItems.isEmpty }
+                if case .results = scanState { return (review?.selectedCount ?? 0) > 0 }
                 return false
             }()
         )
     }
 
-    // MARK: - Idle
-
     private var idleView: some View {
-        VStack(spacing: 28) {
-            Spacer()
-
-            VStack(spacing: 8) {
-                Text(L10n.tr("智能扫描", "Smart Scan", "Умное сканирование"))
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.primary)
-                Text(L10n.tr("扫描 Mac 中的垃圾文件、恶意威胁\n和性能问题", "Scan your Mac for junk files, malware threats,\nand performance issues", "Поиск на Mac мусора, вредоносных программ\nи проблем с производительностью"))
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary.opacity(0.65))
-                    .multilineTextAlignment(.center)
-            }
-
-            ScanButton(
-                title: L10n.tr("扫描", "Scan", "Сканировать"),
-                subtitle: L10n.tr("一键清理", "One-click cleanup", "Очистка одним нажатием"),
-                theme: .smartScan,
-                action: startScan
-            )
-
-            Spacer()
-        }
-        .padding(.horizontal, 40)
+        HomeDashboardView(onStartScan: startScan)
     }
-
-    // MARK: - Scanning (redesigned)
 
     private func scanningView(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64) -> some View {
         VStack(spacing: 0) {
-            // Top stats bar
+
             HStack(spacing: 24) {
-                statBadge(label: L10n.tr("进度"), value: "\(Int(progress * 100))%")
-                statBadge(label: L10n.tr("已发现文件", "Files Found", "Найдено файлов"), value: filesFound.formatted())
-                statBadge(label: L10n.tr("大小", "Size", "Размер"), value: FileSizeFormatter.format(sizeFound))
+                statBadge(label: String(localized: "Progress"), value: "\(Int(progress * 100))%")
+                statBadge(label: String(localized: "Files Found"), value: filesFound.formatted())
+                statBadge(label: String(localized: "Size"), value: FileSizeFormatter.format(sizeFound))
             }
             .padding(.horizontal, 30)
             .padding(.top, 16)
             .padding(.bottom, 12)
 
-            // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
@@ -159,7 +118,6 @@ struct SmartScanView: View {
             .padding(.horizontal, 30)
             .padding(.bottom, 16)
 
-            // Module checklist
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(Array(Self.moduleOrder.enumerated()), id: \.offset) { index, module in
@@ -169,14 +127,15 @@ struct SmartScanView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 20)
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial.opacity(0.5)) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
 
-            Button(L10n.tr("取消", "Cancel", "Отмена")) { cancelScan() }
+            Button("Cancel") { cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -190,7 +149,7 @@ struct SmartScanView: View {
         let completedInfo = completedModules.first { $0.name == module.name }
 
         return HStack(spacing: 10) {
-            // Status icon
+
             ZStack {
                 if isActive {
                     ProgressView()
@@ -208,34 +167,30 @@ struct SmartScanView: View {
             }
             .frame(width: 20)
 
-            // Module icon
             Image(systemName: module.icon)
                 .font(.system(size: 14))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(completed ? 0.6 : 0.25))
                 .frame(width: 20)
 
-            // Module name
             Text(module.name)
                 .font(.system(size: 13, weight: isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(completed ? 0.7 : 0.3))
 
             Spacer()
 
-            // Results for completed modules
             if let info = completedInfo, info.fileCount > 0 {
-                Text(L10n.tr("\(info.fileCount) 项", "\(info.fileCount) items", "\(info.fileCount) \(L10n.russianPlural(info.fileCount, one: "объект", few: "объекта", many: "объектов"))"))
+                Text("\(info.fileCount) items")
                     .font(.system(size: 11))
                     .foregroundStyle(.primary.opacity(0.5))
                 Text(FileSizeFormatter.format(info.size))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.6))
             } else if completedInfo != nil {
-                Text(L10n.tr("干净", "Clean", "Чисто"))
+                Text("Clean")
                     .font(.system(size: 11))
                     .foregroundStyle(.green.opacity(0.7))
             }
 
-            // Group tag
             Text(module.group)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.4))
@@ -265,58 +220,113 @@ struct SmartScanView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Results
-
+    @ViewBuilder
     private func resultsView(totalSize: UInt64) -> some View {
-        VStack(spacing: 20) {
-            SizeDisplay(size: totalSize, label: L10n.tr("发现的垃圾", "of junk found", "найдено мусора"))
+        let selectedCount = review?.selectedCount ?? 0
+        Group {
+            if showingReview, let review {
+                ReviewBrowserView(
+                    data: review.data,
+                    selection: review,
+                    initialSectionID: reviewSectionID,
+                    onDone: { showingReview = false },
+                    onClean: { showCleanConfirm = true }
+                )
+            } else {
+                resultsSummary(totalSize: totalSize)
+            }
+        }
+        .alert("Clean \(selectedCount) item\(selectedCount == 1 ? "" : "s")?", isPresented: $showCleanConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clean", role: .destructive) {
+                showingReview = false
+                runCleanup()
+            }
+        } message: {
+            Text("Selected items will be moved to the Trash so you can recover them if needed.")
+        }
+    }
+
+    private func resultsSummary(totalSize: UInt64) -> some View {
+        let selectedCount = review?.selectedCount ?? 0
+        let selectedSize = review?.selectedSize ?? 0
+        return VStack(spacing: 20) {
+            SizeDisplay(size: totalSize, label: String(localized: "of junk found"))
                 .foregroundStyle(.primary)
                 .padding(.top, 24)
 
             HStack(spacing: 24) {
                 if case .results(let cleanup, _, _, _, _) = scanState {
-                    resultPill(icon: "trash.circle.fill", label: L10n.tr("清理", "Cleanup", "Очистка"), value: FileSizeFormatter.format(cleanup))
+                    resultPill(icon: "trash.circle.fill", label: String(localized: "Cleanup"), value: FileSizeFormatter.format(cleanup))
                 }
                 if case .results(_, let threats, _, _, _) = scanState {
-                    resultPill(icon: "shield.lefthalf.filled", label: L10n.tr("防护", "Protection", "Защита"), value: L10n.tr("\(threats) 个威胁", "\(threats) threats", "\(threats) \(L10n.russianPlural(threats, one: "угроза", few: "угрозы", many: "угроз"))"))
+                    resultPill(icon: "shield.lefthalf.filled", label: String(localized: "Protection"), value: "\(threats) threats")
                 }
                 if case .results(_, _, let perf, _, _) = scanState {
-                    resultPill(icon: "gauge.with.dots.needle.67percent", label: L10n.tr("加速", "Speed", "Ускорение"), value: L10n.tr("\(perf) 项", "\(perf) items", "\(perf) \(L10n.russianPlural(perf, one: "объект", few: "объекта", many: "объектов"))"))
+                    resultPill(icon: "gauge.with.dots.needle.67percent", label: String(localized: "Speed"), value: "\(perf) items")
                 }
             }
 
-            // Fill the remaining height so the list is tall enough to review
-            // comfortably (issue #85), instead of a short fixed box.
-            FileListView(results: cleanResults, selectedItems: $selectedItems)
-                .frame(maxHeight: .infinity)
-                .background {
-                    if removeBackgroundColors { Color.clear }
-                    else { Rectangle().fill(.ultraThinMaterial) }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal, 20)
+            if let review {
+                HStack(spacing: 8) {
+                    Button("Select All") {
+                        review.applyToAll(.all)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
 
-            // Footer: running selection on the left, the clean action on the right.
-            HStack {
-                Text(L10n.tr("已选择 \(selectedItems.count)/\(totalCleanItems) 项", "\(selectedItems.count)/\(totalCleanItems) selected", "Выбрано \(selectedItems.count) из \(totalCleanItems) \(L10n.russianPlural(totalCleanItems, one: "объекта", few: "объектов", many: "объектов"))"))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.7))
+                    Button("Smart") {
+                        review.applyToAll(.smart)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button("Deselect All") {
+                        review.applyToAll(.none)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+
+                ScrollView {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 200, maximum: 250), spacing: 14)],
+                        spacing: 14
+                    ) {
+                        ForEach(review.data.sections) { section in
+                            sectionCard(section, selection: review)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 4)
+                }
+                .frame(maxWidth: 820, maxHeight: .infinity)
+            } else {
                 Spacer()
+            }
+
+            HStack(spacing: 14) {
+                Text("\(selectedCount.formatted()) items selected · \(FileSizeFormatter.format(selectedSize))")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    reviewSectionID = nil
+                    showingReview = true
+                } label: {
+                    Label("Review Details", systemImage: "list.bullet.rectangle")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(review == nil)
+
                 Button { showCleanConfirm = true } label: {
-                    Text(L10n.tr("清理 · \(FileSizeFormatter.format(selectedCleanSize))", "Clean · \(FileSizeFormatter.format(selectedCleanSize))", "Очистить · \(FileSizeFormatter.format(selectedCleanSize))"))
+                    Text("Clean · \(FileSizeFormatter.format(selectedSize))")
                 }
-                .buttonStyle(SuperEllipseButtonStyle(
-                    gradient: ModuleTheme.smartScan.buttonGradient,
-                    size: CGSize(width: 200, height: 46)
-                ))
-                .disabled(selectedItems.isEmpty)
-                .opacity(selectedItems.isEmpty ? 0.5 : 1)
-                .alert(L10n.tr("清理 \(selectedItems.count) 项？", "Clean \(selectedItems.count) item\(selectedItems.count == 1 ? "" : "s")?", "Очистить \(selectedItems.count) \(L10n.russianPlural(selectedItems.count, one: "объект", few: "объекта", many: "объектов"))?"), isPresented: $showCleanConfirm) {
-                    Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { }
-                    Button(L10n.tr("清理", "Clean", "Очистить"), role: .destructive) { runCleanup() }
-                } message: {
-                    Text(L10n.tr("选中的项目会移到废纸篓，如有需要仍可恢复。", "Selected items will be moved to the Trash so you can recover them if needed.", "Выбранные объекты будут перемещены в Корзину, откуда при необходимости их можно восстановить."))
-                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(nsColor: .systemBlue))
+                .controlSize(.large)
+                .disabled(selectedCount == 0)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
@@ -324,36 +334,57 @@ struct SmartScanView: View {
         .padding(.horizontal, 20)
     }
 
-    /// Total number of cleanable items found (across all categories).
-    private var totalCleanItems: Int {
-        cleanResults.reduce(0) { $0 + $1.items.count }
-    }
-
-    /// Cheap signature of the result set (category + item count), used to
-    /// rebuild the size index only when the results change. O(categories).
-    private var cleanResultsSignature: String {
-        cleanResults.map { "\($0.category.rawValue):\($0.items.count)" }.joined(separator: ",")
-    }
-
-    /// Rebuild the url -> size lookup so recomputing the selected total is
-    /// O(selected) instead of O(all items) with a FileItem copy each pass.
-    private func rebuildCleanSizeIndex() {
-        var map = [URL: UInt64](minimumCapacity: cleanResults.reduce(0) { $0 + $1.items.count })
-        for result in cleanResults {
-            for item in result.items { map[item.url] = item.size }
+    private func sectionCard(_ section: ReviewSection, selection: ReviewSelection) -> some View {
+        let selected = selection.selectedSize(ofSection: section)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                ReviewCheckbox(state: selection.state(ofSection: section)) {
+                    selection.toggleSection(section)
+                }
+                Image(systemName: ReviewSectionInfo.icon(for: section.id))
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color(nsColor: .systemBlue))
+                Spacer()
+                Button {
+                    reviewSectionID = section.id
+                    showingReview = true
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            Button {
+                reviewSectionID = section.id
+                showingReview = true
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(section.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(FileSizeFormatter.format(section.size))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Text("\(FileSizeFormatter.format(selected)) selected")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        cleanSizeIndex = map
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(white: 0.975), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
+        .help("Review Details")
     }
-
-    /// Sum the selected items' sizes via the index. Every selection mutation
-    /// changes `selectedItems.count`, so this is driven by an O(1) onChange key.
-    private func recomputeSelectedCleanSize() {
-        var total: UInt64 = 0
-        for url in selectedItems { total += cleanSizeIndex[url] ?? 0 }
-        selectedCleanSize = total
-    }
-
-    // MARK: - Empty / Done / Cleaning
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -361,13 +392,13 @@ struct SmartScanView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(.primary.opacity(0.9))
-            Text(L10n.tr("你的 Mac 很干净！", "Your Mac is clean!", "Ваш Mac чист!"))
+            Text("Your Mac is clean!")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.primary)
-            Text(L10n.tr("未发现垃圾、威胁或性能问题", "No junk, threats, or performance issues found", "Мусор, угрозы и проблемы с производительностью не обнаружены"))
+            Text("No junk, threats, or performance issues found")
                 .font(.system(size: 14))
                 .foregroundStyle(.primary.opacity(0.6))
-            Button(L10n.tr("完成", "Done", "Готово")) { resetScan() }
+            Button("Done") { resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -378,13 +409,9 @@ struct SmartScanView: View {
     private func cleaningView(progress: Double) -> some View {
         VStack(spacing: 20) {
             Spacer()
-            ScanProgressRing(progress: progress, phase: L10n.tr("正在清理你的 Mac...", "Cleaning your Mac...", "Очистка Mac..."), theme: .smartScan)
-            // Cancel mid-clean — consistent with the per-module views: just
-            // cancel the task and let it land on .done with whatever was
-            // already freed (the CleaningEngine checks Task.isCancelled at
-            // each chunk boundary). We do NOT reset to .idle here, because
-            // the in-flight task would race that back to .done.
-            Button(L10n.tr("取消", "Cancel", "Отмена")) { cleanTask?.cancel() }
+            ScanProgressRing(progress: progress, phase: String(localized: "Cleaning your Mac..."), theme: .smartScan)
+
+            Button("Cancel") { cleanTask?.cancel() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -392,8 +419,6 @@ struct SmartScanView: View {
         }
     }
 
-    /// Scrolls when taller than the window (support card on a small window)
-    /// instead of overflowing the pane.
     private func doneView(freedSize: UInt64, breakdown: [SmartScanCleanup.RecentlyCleanedRow]) -> some View {
         FitOrScroll { doneContent(freedSize: freedSize, breakdown: breakdown) }
     }
@@ -404,15 +429,15 @@ struct SmartScanView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(.primary)
-            Text(L10n.tr("已移到废纸篓", "Moved to the Trash", "Перемещено в Корзину"))
+            Text("Moved to the Trash")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.primary)
-            SizeDisplay(size: freedSize, label: L10n.tr("可回收", "ready to reclaim", "можно освободить"))
+            SizeDisplay(size: freedSize, label: String(localized: "ready to reclaim"))
                 .foregroundStyle(.primary)
 
             if !breakdown.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(L10n.tr("最近清理", "Recently cleaned", "Недавно очищено"))
+                    Text("Recently cleaned")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.55))
                         .textCase(.uppercase)
@@ -439,13 +464,13 @@ struct SmartScanView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            Text(L10n.tr("你选择的项目已在废纸篓中——需要时可以恢复。若要彻底删除，请打开“废纸篓”模块并清空。", "Your selected items are in the Trash — recover anything you need. To erase them for good, open Trash Bins and empty it.", "Выбранные объекты находятся в Корзине — при необходимости их можно восстановить. Чтобы удалить их окончательно, откройте раздел «Корзины» и очистите корзины."))
+            Text("Your selected items are in the Trash — recover anything you need. To erase them for good, open Trash Bins and empty it.")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.65))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
             if askForSupport { SupportCard() }
-            Button(L10n.tr("完成", "Done", "Готово")) { resetScan() }
+            Button("Done") { resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -459,11 +484,7 @@ struct SmartScanView: View {
         if row.itemCount <= 1 {
             return size
         }
-        return L10n.tr(
-            "\(size)（\(row.itemCount) 项）",
-            "\(size) (\(row.itemCount) items)",
-            "\(size) (\(row.itemCount) \(L10n.russianPlural(row.itemCount, one: "объект", few: "объекта", many: "объектов")))"
-        )
+        return "\(size) (\(row.itemCount) items)"
     }
 
     private func resetScan() {
@@ -471,7 +492,9 @@ struct SmartScanView: View {
         cleanTask = nil
         scanWatchTask?.cancel()
         scanWatchTask = nil
-        selectedItems = []
+        review = nil
+        showingReview = false
+        reviewSectionID = nil
         cleanResults = []
         askForSupport = false
         completedModules = []
@@ -479,7 +502,6 @@ struct SmartScanView: View {
         scanState = .idle
     }
 
-    /// Abort an in-flight Smart Scan and return to the idle screen (#3).
     private func cancelScan() {
         appState.scanCoordinator.cancel()
         scanWatchTask?.cancel()
@@ -488,8 +510,6 @@ struct SmartScanView: View {
         currentModuleName = ""
         scanState = .idle
     }
-
-    // MARK: - Components
 
     private func resultPill(icon: String, label: String, value: String) -> some View {
         VStack(spacing: 6) {
@@ -507,15 +527,13 @@ struct SmartScanView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    // MARK: - Actions
-
     private func startScan() {
         completedModules = []
         currentModuleName = ""
         scanWatchTask?.cancel()
 
         scanWatchTask = Task {
-            scanState = .scanning(phase: L10n.tr("正在分析系统...", "Analyzing system...", "Анализ системы..."), progress: 0, filesFound: 0, sizeFound: 0)
+            scanState = .scanning(phase: String(localized: "Analyzing system..."), progress: 0, filesFound: 0, sizeFound: 0)
             appState.scanCoordinator.scanAll()
 
             var previousModule = ""
@@ -528,7 +546,7 @@ struct SmartScanView: View {
 
                 switch appState.scanCoordinator.state {
                 case .scanning(let progress, let module, let files, let size):
-                    // Detect module transitions
+
                     if module != previousModule && !previousModule.isEmpty {
                         let filesInModule = files - previousFiles
                         let sizeInModule = size - previousSize
@@ -549,7 +567,7 @@ struct SmartScanView: View {
                     scanState = .scanning(phase: module, progress: progress, filesFound: files, sizeFound: size)
 
                 case .completed(let results):
-                    // Mark last module as completed
+
                     if !previousModule.isEmpty {
                         let totalFiles = results.reduce(0) { $0 + $1.totalFileCount }
                         let totalSize = results.reduce(0 as UInt64) { $0 + $1.totalSize }
@@ -568,8 +586,26 @@ struct SmartScanView: View {
                     if totalSize == 0 && results.allSatisfy({ $0.totalFileCount == 0 }) {
                         scanState = .empty
                     } else {
+
+                        scanState = .scanning(
+                            phase: String(localized: "Preparing results..."),
+                            progress: 1,
+                            filesFound: results.reduce(0) { $0 + $1.totalFileCount },
+                            sizeFound: totalSize
+                        )
+                        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+                        let data = await Task.detached(priority: .userInitiated) {
+                            ReviewDataBuilder.build(
+                                modules: results,
+                                runningBundleIDs: running,
+                                includeEmptySystemJunkCategories: true
+                            )
+                        }.value
+                        if Task.isCancelled { return }
                         cleanResults = SmartScanCleanup.allResults(from: results)
-                        selectedItems = SmartScanCleanup.defaultSelection(from: results)
+                        review = ReviewSelection(data: data)
+                        showingReview = true
+                        reviewSectionID = nil
                         scanState = .results(
                             cleanup: totalSize,
                             protection: 0,
@@ -585,8 +621,7 @@ struct SmartScanView: View {
                     return
 
                 case .idle:
-                    // Coordinator starts idle briefly, then moves to .scanning.
-                    // After Cancel it stays idle — exit so we don't spin forever.
+
                     continue
                 }
             }
@@ -594,8 +629,7 @@ struct SmartScanView: View {
     }
 
     private func runCleanup() {
-        // Snapshot the inputs up-front so the background task can't observe
-        // later selection or scan-state mutations.
+
         let modules: [ModuleScanResult]
         if case .results(_, _, _, _, let moduleResults) = scanState {
             modules = moduleResults
@@ -603,17 +637,19 @@ struct SmartScanView: View {
             modules = []
         }
         let results = cleanResults
-        let selection = selectedItems
+        let reviewData = review?.data
+        let flags = review?.snapshot() ?? []
         scanState = .cleaning(progress: 0)
         cleanTask = Task {
+            let selection: Set<URL> = await Task.detached(priority: .userInitiated) {
+                reviewData?.selectedURLs(flags: flags) ?? []
+            }.value
             let result = await CleanActions.executeUserClean(
                 results: results,
                 selectedItems: selection,
                 engine: appState.cleaningEngine,
                 onProgress: { p in Task { @MainActor in
-                    // Ignore late progress that lands after we've left the
-                    // cleaning phase (cancel/done), so it can't resurrect
-                    // a stale .cleaning state.
+
                     if case .cleaning = scanState {
                         scanState = .cleaning(progress: p.fraction)
                     }

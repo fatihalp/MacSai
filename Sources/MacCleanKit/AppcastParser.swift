@@ -1,18 +1,9 @@
 import Foundation
 
-/// Minimal Sparkle appcast XML parser. Extracts the latest marketing version's
-/// `sparkle:shortVersionString`, falling back to `sparkle:version` only when
-/// the feed has no marketing versions.
-///
-/// Sparkle accepts both versions either as `<enclosure>` attributes (Sparkle 1
-/// style) or as child elements of `<item>` (what Sparkle 2's `generate_appcast`
-/// writes). Like Sparkle itself, the item element wins when both are present.
 public final class AppcastParser: NSObject, XMLParserDelegate, @unchecked Sendable {
     private static let shortVersionKey = "sparkle:shortVersionString"
     private static let buildVersionKey = "sparkle:version"
 
-    /// Keep marketing and build versions in separate domains. A build such as
-    /// 4012 must never outrank a marketing version such as 2.1.0.
     private var bestShortVersion: String?
     private var bestShortDownloadURL: URL?
     private var bestBuildVersion: String?
@@ -24,7 +15,7 @@ public final class AppcastParser: NSObject, XMLParserDelegate, @unchecked Sendab
     private var currentAttributeBuildVersion: String?
     private var currentElementShortVersion: String?
     private var currentElementBuildVersion: String?
-    /// Name of the item-level version element whose text is being collected.
+
     private var capturingElement: String?
     private var capturedText = ""
 
@@ -64,8 +55,7 @@ public final class AppcastParser: NSObject, XMLParserDelegate, @unchecked Sendab
         case "sparkle:deltas" where inItem:
             inDeltas = true
         case "enclosure" where inItem && !inDeltas:
-            // Delta enclosures patch one specific older build, so only the
-            // item's full enclosure is a usable download.
+
             if currentDownloadURL == nil {
                 currentDownloadURL = attributes["url"].flatMap(URL.init(string:))
             }
@@ -113,9 +103,7 @@ public final class AppcastParser: NSObject, XMLParserDelegate, @unchecked Sendab
 
     private func finishItem() {
         inItem = false
-        // Keep the highest version across all items. Sparkle appcasts are NOT
-        // guaranteed to list the newest release first (issue #105: taking the
-        // first item offered downgrades), so compare every item's version.
+
         if let version = currentElementShortVersion ?? currentAttributeShortVersion,
            shouldReplace(bestShortVersion, with: version) {
             bestShortVersion = version

@@ -3,14 +3,9 @@ import MacCleanKit
 
 public struct LargeOldFilesModule: ScanModule {
     public let id = "large_old_files"
-    public var name: String { L10n.tr("大文件与旧文件", "Large & Old Files", "Большие и старые файлы") }
+    public var name: String { String(localized: "Large & Old Files") }
     public let category = ModuleCategory.files
 
-    // Excluded from Smart Scan's "junk found" total: large media (music,
-    // videos, project files) is not junk, and folding it into the headline
-    // number is misleading. It stays discoverable in its own dedicated
-    // section, which runs its own scan. Mirrors the other `.files` modules
-    // (Duplicates, SpaceLens, Shredder), which are opt-in for the same reason.
     public let includedInSmartScan = false
 
     private let scanner = TargetedScanner()
@@ -46,13 +41,6 @@ public struct LargeOldFilesModule: ScanModule {
         return Self.makeResults(large: split.large, old: split.old).filteringUncleanable()
     }
 
-    /// Pure result builder for testability. Large and old files always require
-    /// explicit user selection before cleaning.
-    ///
-    /// Returns the results *unfiltered*: callers must apply
-    /// `filteringUncleanable()` before showing them (see `scan()`). That step is
-    /// deliberately kept out here so this builder stays pure and can be tested
-    /// with synthetic items that don't exist on disk.
     internal static func makeResults(large: [FileItem], old: [FileItem]) -> [ScanResult] {
         var results: [ScanResult] = []
         if !large.isEmpty {
@@ -64,9 +52,6 @@ public struct LargeOldFilesModule: ScanModule {
         return results
     }
 
-    /// Pure splitter for testability: classifies file items into "large" and "old"
-    /// buckets based on size and modification age. Both buckets are sorted
-    /// (large: descending size; old: ascending mod date).
     public static func splitLargeAndOld(
         items: [FileItem],
         minSize: UInt64,
@@ -87,5 +72,3 @@ public struct LargeOldFilesModule: ScanModule {
         return (large, old)
     }
 }
-
-// `FileGroup` moved to MacCleanKit — see Sources/MacCleanKit/FileGroup.swift.

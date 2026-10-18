@@ -8,7 +8,7 @@ struct UpdaterView: View {
     @State private var isChecking = false
     @State private var hasChecked = false
     @State private var apps: [AppInfo] = []
-    /// Update rows currently mid-action — drives the per-row spinner + disable.
+
     @State private var updatingIDs: Set<UUID> = []
 
     private let discovery = AppDiscovery()
@@ -18,22 +18,21 @@ struct UpdaterView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("应用更新", "Updater", "Обновления"))
+                    Text("Updater")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr("检查可用的应用更新", "Check for available app updates", "Проверка доступных обновлений приложений"))
+                    Text("Check for available app updates")
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
                 }
                 Spacer()
                 if !isChecking {
-                    Button(hasChecked ? L10n.tr("重新检查", "Recheck", "Проверить снова") : L10n.tr("检查更新", "Check for Updates", "Проверить обновления")) {
+                    Button(hasChecked ? "Recheck" : "Check for Updates") {
                         checkUpdates()
                     }
-                    .buttonStyle(SuperEllipseButtonStyle(
-                        gradient: ModuleTheme.applications.buttonGradient,
-                        size: CGSize(width: hasChecked ? 100 : 160, height: 34)
-                    ))
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(nsColor: .systemBlue))
+                    .controlSize(.regular)
                 }
             }
             .padding(.horizontal, 24)
@@ -41,7 +40,7 @@ struct UpdaterView: View {
 
             if isChecking {
                 Spacer()
-                ScanProgressRing(progress: 0.5, phase: L10n.tr("正在检查更新...", "Checking for updates...", "Проверка обновлений..."), theme: .applications)
+                ScanProgressRing(progress: 0.5, phase: "Checking for updates...", theme: .applications)
                 Spacer()
             } else if hasChecked && updates.isEmpty {
                 Spacer()
@@ -49,7 +48,7 @@ struct UpdaterView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 44))
                         .foregroundStyle(.primary.opacity(0.8))
-                    Text(L10n.tr("所有应用均为最新", "All apps are up to date", "Все приложения обновлены"))
+                    Text("All apps are up to date")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.7))
                 }
@@ -77,7 +76,7 @@ struct UpdaterView: View {
                                     .controlSize(.small)
                                     .frame(width: 60)
                             } else {
-                                Button(L10n.tr("更新", "Update", "Обновить")) { startUpdate(update) }
+                                Button("Update") { startUpdate(update) }
                                     .buttonStyle(.bordered)
                                     .controlSize(.small)
                             }
@@ -85,11 +84,12 @@ struct UpdaterView: View {
                     }
                 }
                 .listStyle(.inset)
-                .background {
-                    if removeBackgroundColors { Color.clear }
-                    else { Rectangle().fill(.ultraThinMaterial) }
-                }
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                )
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             } else {
@@ -98,7 +98,7 @@ struct UpdaterView: View {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 44))
                         .foregroundStyle(.primary.opacity(0.4))
-                    Text(L10n.tr("点击上方按钮检查更新", "Click above to check for updates", "Нажмите кнопку выше, чтобы проверить обновления"))
+                    Text("Click above to check for updates")
                         .font(.system(size: 14))
                         .foregroundStyle(.primary.opacity(0.55))
                 }
@@ -117,9 +117,6 @@ struct UpdaterView: View {
         }
     }
 
-    /// Flip the row to a spinner + disable it the instant Update is tapped,
-    /// fire the action, then hold the indicator briefly so the user clearly
-    /// sees that the tap registered and something is happening.
     private func startUpdate(_ update: AppUpdateChecker.AppUpdate) {
         guard !updatingIDs.contains(update.id) else { return }
         updatingIDs.insert(update.id)

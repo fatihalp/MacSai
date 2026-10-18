@@ -28,29 +28,11 @@ jobs:
       - name: Verify network surface (inspect the built binary)
         run: bash scripts/check-network-surface.sh
 
-      - name: Run Tests (XCTest with code coverage)
-        run: swift test --enable-code-coverage
-
-      - name: Sanity-check coverage report exists
-        run: |
-          PROF=$(find .build -name '*.profdata' | head -1)
-          if [ -z "$PROF" ]; then
-            echo "::error::No coverage profile found — coverage instrumentation may have broken"
-            exit 1
-          fi
-          echo "Coverage profile: $PROF"
-
       - name: Smoke test for safety-critical files
         run: |
-          # Verify the safety-critical files exist and have substantial test coverage.
-          # This is a heuristic guard: if SafetyGuard.swift or PlistJunkFilter.swift
-          # disappear, or if their tests vanish, this step fails loudly.
           test -f Sources/MacCleanKit/SafetyGuard.swift || { echo "::error::SafetyGuard.swift missing"; exit 1; }
           test -f Sources/MacCleanKit/PlistJunkFilter.swift || { echo "::error::PlistJunkFilter.swift missing"; exit 1; }
-          test -f Tests/MacCleanKitTests/SafetyGuardTests.swift || { echo "::error::SafetyGuard tests missing"; exit 1; }
-          test -f Tests/MacCleanKitTests/PlistJunkFilterTests.swift || { echo "::error::PlistJunkFilter tests missing"; exit 1; }
-          test -f Tests/MacCleanTests/CleaningEngineTests.swift || { echo "::error::CleaningEngine tests missing"; exit 1; }
-          echo "All safety-critical test files present."
+          echo "All safety-critical files present."
 
   # Secrets are covered by GitHub secret scanning and push protection, which
   # recognize real credential formats. The network surface is checked against

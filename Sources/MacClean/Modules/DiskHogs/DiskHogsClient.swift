@@ -1,9 +1,6 @@
 import Foundation
 import MacCleanKit
 
-/// Runs the Docker and simctl probes and deletions behind the Disk Hogs
-/// module. Every command goes through `BoundedProcess`, so a wedged Docker
-/// daemon or simctl can't hang the screen, and leaving it stops the work.
 public struct DiskHogsClient: Sendable {
     public enum DockerState: Equatable, Sendable {
         case notInstalled
@@ -11,7 +8,6 @@ public struct DiskHogsClient: Sendable {
         case rows([DockerDiskRow])
     }
 
-    /// Result of one prune or delete, for per-item reporting.
     public struct ItemResult: Equatable, Sendable {
         public let name: String
         public let outcome: BoundedProcess.Outcome
@@ -27,9 +23,6 @@ public struct DiskHogsClient: Sendable {
         MaintenanceTask.resolveDockerPath(existing: { FileManager.default.isExecutableFile(atPath: $0) })
     }
 
-    /// The real simctl inside the selected developer directory. Never the
-    /// /usr/bin/xcrun shim: on a Mac without developer tools that shim pops
-    /// the "install command line tools" dialog. `xcode-select -p` does not.
     private static func simctlPath() async -> String? {
         let outcome = await BoundedProcess.run("/usr/bin/xcode-select", ["-p"], timeout: .seconds(10))
         guard outcome.succeeded else { return nil }
@@ -45,8 +38,6 @@ public struct DiskHogsClient: Sendable {
         return .rows(DockerSystemDFParser.parse(outcome.stdoutText))
     }
 
-    /// Unavailable devices and deletable older runtimes. Both empty when the
-    /// Mac has no Xcode.
     public func simulators() async -> (devices: [SimulatorDevice], runtimes: [SimulatorRuntime]) {
         guard let simctl = await Self.simctlPath() else { return ([], []) }
         let devices = await BoundedProcess.run(simctl, ["list", "devices", "-j"], timeout: Self.probeTimeout)
@@ -62,7 +53,7 @@ public struct DiskHogsClient: Sendable {
         guard let docker = Self.dockerPath() else {
             return commands.map {
                 ItemResult(name: $0.category.label, outcome: .launchFailed(
-                    L10n.tr("未找到 Docker", "Docker not found", "Docker не найден")))
+                    String(localized: "Docker not found")))
             }
         }
         var results: [ItemResult] = []

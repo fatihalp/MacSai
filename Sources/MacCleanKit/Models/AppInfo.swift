@@ -38,7 +38,7 @@ public struct AppInfo: Identifiable, Hashable, Sendable {
 
     public var isUnused: Bool {
         guard let lastOpened else { return false }
-        return Date().timeIntervalSince(lastOpened) > 180 * 24 * 3600 // 6 months
+        return Date().timeIntervalSince(lastOpened) > 180 * 24 * 3600
     }
 
     public func hash(into hasher: inout Hasher) {

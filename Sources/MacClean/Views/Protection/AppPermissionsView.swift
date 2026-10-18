@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import MacCleanKit
 
 struct AppPermissionsView: View {
@@ -16,14 +17,10 @@ struct AppPermissionsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("权限总览", "Permissions", "Обзор разрешений"))
+                    Text("Permissions")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr(
-                        "按应用查看持有哪些隐私权限。这是只读列表——按钮会打开系统设置。本应用无法关闭权限。",
-                        "See which privacy grants each app holds. This list is read-only — buttons open System Settings. Mac Sai cannot turn a permission off.",
-                        "Смотрите, какие разрешения есть у каждого приложения. Список только для чтения — кнопки открывают Системные настройки. Это приложение не может выключить разрешение."
-                    ))
+                    Text("See which privacy grants each app holds. This list is read-only — buttons open System Settings. Mac Sai cannot turn a permission off.")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.6))
                 }
@@ -31,10 +28,10 @@ struct AppPermissionsView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(L10n.tr("刷新", "Refresh", "Обновить"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading)
-                .help(L10n.tr("重新读取权限列表", "Reload the permission list", "Заново прочитать список разрешений"))
+                .help("Reload the permission list")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -46,7 +43,7 @@ struct AppPermissionsView: View {
                         ProgressView()
                             .controlSize(.large)
                             .tint(.primary)
-                        Text(L10n.tr("正在读取权限…", "Reading permissions…", "Чтение разрешений…"))
+                        Text("Reading permissions…")
                             .font(.system(size: 13))
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
@@ -55,11 +52,12 @@ struct AppPermissionsView: View {
                     list
                 }
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
@@ -75,11 +73,7 @@ struct AppPermissionsView: View {
 
             if snapshot.listing == .loaded {
                 if apps.isEmpty {
-                    Text(L10n.tr(
-                        "未列出任何应用。",
-                        "No apps listed.",
-                        "Приложения не показаны."
-                    ))
+                    Text("No apps listed.")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.4))
                     .listRowSeparator(.hidden)
@@ -125,19 +119,19 @@ struct AppPermissionsView: View {
                     Text(permissionTitle(grant.permission))
                         .font(.system(size: 13, weight: .medium))
                     if grant.isLimited {
-                        Text(L10n.tr("受限", "Limited", "Ограничено"))
+                        Text("Limited")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
                 if let target = grant.indirectObjectIdentifier, !target.isEmpty {
-                    Text(L10n.tr("控制 \(target)", "Controls \(target)", "Управляет \(target)"))
+                    Text("Controls \(target)")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                 }
             }
             Spacer()
-            Button(L10n.tr("在系统设置中打开", "Open in System Settings", "Открыть в Системных настройках")) {
+            Button("Open in System Settings") {
                 client.openSettings(for: grant.permission)
             }
             .buttonStyle(.borderless)
@@ -155,7 +149,7 @@ struct AppPermissionsView: View {
                         Label(permissionTitle(permission), systemImage: permissionIcon(permission))
                             .foregroundStyle(.primary)
                         Spacer()
-                        Text(L10n.tr("在系统设置中打开", "Open in System Settings", "Открыть в Системных настройках"))
+                        Text("Open in System Settings")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -163,14 +157,10 @@ struct AppPermissionsView: View {
                 .buttonStyle(.plain)
             }
         } header: {
-            Text(L10n.tr("在系统设置中打开类别", "Open a category in System Settings", "Открыть категорию в Системных настройках"))
+            Text("Open a category in System Settings")
                 .font(.system(size: 13, weight: .semibold))
         } footer: {
-            Text(L10n.tr(
-                "更改权限只能在系统设置中完成。",
-                "Changing a grant can only be done in System Settings.",
-                "Изменить разрешение можно только в Системных настройках."
-            ))
+            Text("Changing a grant can only be done in System Settings.")
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
         }
@@ -180,27 +170,19 @@ struct AppPermissionsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(
                 snapshot.listing == .needsFullDiskAccess
-                    ? L10n.tr("需要完全磁盘访问权限才能列出应用", "Full Disk Access needed to list apps", "Чтобы показать приложения, нужен полный доступ к диску")
-                    : L10n.tr("无法读取权限数据库", "Couldn't read the permission database", "Не удалось прочитать базу разрешений")
+                    ? String(localized: "Full Disk Access needed to list apps")
+                    : String(localized: "Couldn't read the permission database")
             )
             .font(.system(size: 13, weight: .semibold))
             Text(
                 snapshot.listing == .needsFullDiskAccess
-                    ? L10n.tr(
-                        "macOS 正在阻止按应用汇总。请为 \(MCConstants.appName) 授予完全磁盘访问权限，然后刷新。下方按钮仍会打开系统设置。",
-                        "macOS is blocking the by-app overview. Grant \(MCConstants.appName) Full Disk Access, then refresh. The buttons below still open System Settings.",
-                        "macOS блокирует сводку по приложениям. Предоставьте \(MCConstants.appName) полный доступ к диску и обновите. Кнопки ниже по-прежнему открывают Системные настройки."
-                    )
-                    : L10n.tr(
-                        "无法列出哪些应用持有哪些权限。仍可通过下方按钮打开系统设置。",
-                        "This app can't list which apps hold which grants. You can still open System Settings with the buttons below.",
-                        "Не получается показать, какие приложения какими разрешениями владеют. По-прежнему можно открыть Системные настройки кнопками ниже."
-                    )
+                    ? "macOS is blocking the by-app overview. Grant \(MCConstants.appName) Full Disk Access, then refresh. The buttons below still open System Settings."
+                    : String(localized: "This app can't list which apps hold which grants. You can still open System Settings with the buttons below.")
             )
             .font(.system(size: 12))
             .foregroundStyle(.primary.opacity(0.7))
             if snapshot.listing == .needsFullDiskAccess {
-                Button(L10n.tr("在系统设置中打开", "Open in System Settings", "Открыть в Системных настройках")) {
+                Button("Open in System Settings") {
                     client.openFullDiskAccessSettings()
                 }
                 .buttonStyle(.borderedProminent)
@@ -218,20 +200,16 @@ struct AppPermissionsView: View {
     }
 
     private func grantCountLabel(_ count: Int) -> String {
-        L10n.tr(
-            "\(count) 项权限",
-            count == 1 ? "1 grant" : "\(count) grants",
-            "\(count) \(L10n.russianPlural(count, one: "разрешение", few: "разрешения", many: "разрешений"))"
-        )
+        count == 1 ? "1 grant" : "\(count) grants"
     }
 
     private func permissionTitle(_ permission: PrivacyPermission) -> String {
         switch permission {
-        case .camera: L10n.tr("相机", "Camera", "Камера")
-        case .microphone: L10n.tr("麦克风", "Microphone", "Микрофон")
-        case .fullDiskAccess: L10n.tr("完全磁盘访问权限", "Full Disk Access", "Полный доступ к диску")
-        case .screenRecording: L10n.tr("屏幕录制", "Screen Recording", "Запись экрана")
-        case .automation: L10n.tr("自动化", "Automation", "Автоматизация")
+        case .camera: String(localized: "Camera")
+        case .microphone: String(localized: "Microphone")
+        case .fullDiskAccess: String(localized: "Full Disk Access")
+        case .screenRecording: String(localized: "Screen Recording")
+        case .automation: String(localized: "Automation")
         }
     }
 
@@ -262,6 +240,6 @@ struct AppPermissionsView: View {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.client) {
             return NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
         }
-        return NSWorkspace.shared.icon(forFileType: "app")
+        return NSWorkspace.shared.icon(for: .application)
     }
 }

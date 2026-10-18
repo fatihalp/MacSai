@@ -1,13 +1,11 @@
 import Foundation
 
-/// A directory entry fed into `ProjectJunkFinder`. The live scanner builds these
-/// from the filesystem; tests inject fixtures so the logic stays pure.
 public struct ProjectTreeNode: Equatable, Sendable {
     public let path: String
     public let bytes: UInt64
     public let modified: Date?
     public let childNames: [String]
-    /// Lines of this folder's `.gitignore`, when it has one.
+
     public let gitignoreLines: [String]
 
     public init(
@@ -27,15 +25,46 @@ public struct ProjectTreeNode: Equatable, Sendable {
     public var name: String { (path as NSString).lastPathComponent }
 }
 
-public enum ProjectJunkKind: String, Equatable, Sendable {
+public enum ProjectJunkKind: String, Equatable, Sendable, CaseIterable {
     case nodeModules
     case nextBuild
+    case nuxtBuild
+    case turboCache
+    case parcelCache
     case dist
     case rustTarget
+    case swiftBuild
     case pythonVenv
+    case pythonCache
+    case pytestCache
     case gradleBuild
+    case gradleCache
     case mavenBuild
     case cocoaPods
+    case dartTool
+    case vendorDeps
+
+    public var label: String {
+        switch self {
+        case .nodeModules: "node_modules"
+        case .nextBuild: "Next.js (.next)"
+        case .nuxtBuild: "Nuxt (.nuxt)"
+        case .turboCache: "Turborepo (.turbo)"
+        case .parcelCache: "Parcel (.parcel-cache)"
+        case .dist: "dist"
+        case .rustTarget: "Rust (target)"
+        case .swiftBuild: "SwiftPM (.build)"
+        case .pythonVenv: "Python (venv)"
+        case .pythonCache: "Python (__pycache__)"
+        case .pytestCache: "Pytest (.pytest_cache)"
+        case .gradleBuild: "Gradle (build)"
+        case .gradleCache: "Gradle (.gradle)"
+        case .mavenBuild: "Maven (target)"
+        case .cocoaPods: "CocoaPods (Pods)"
+        case .dartTool: "Flutter/Dart (.dart_tool)"
+        case .vendorDeps: "Vendor (vendor)"
+        }
+    }
 }
 
 public struct ProjectJunkItem: Equatable, Sendable, Identifiable {
@@ -62,14 +91,13 @@ public struct ProjectJunkItem: Equatable, Sendable, Identifiable {
     }
 }
 
-/// Finds regenerable build/dependency folders inside user-chosen project roots.
-/// Never returns the project folder itself — only the junk directory inside it.
 public enum ProjectJunkFinder {
-    /// Nothing is auto-selected; the user must opt in to each folder.
+
     public static let defaultSelection: Set<String> = []
 
     private static let nodeMarkers: Set<String> = ["package.json"]
     private static let rustMarkers: Set<String> = ["Cargo.toml"]
+    private static let swiftMarkers: Set<String> = ["Package.swift"]
     private static let pythonMarkers: Set<String> = [
         "pyproject.toml", "requirements.txt", "setup.py", "Pipfile",
     ]
@@ -78,6 +106,8 @@ public enum ProjectJunkFinder {
     ]
     private static let mavenMarkers: Set<String> = ["pom.xml"]
     private static let podsMarkers: Set<String> = ["Podfile"]
+    private static let dartMarkers: Set<String> = ["pubspec.yaml"]
+    private static let vendorMarkers: Set<String> = ["composer.json", "go.mod"]
 
     public static func find(nodes: [ProjectTreeNode]) -> [ProjectJunkItem] {
         let byPath = Dictionary(nodes.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
@@ -126,34 +156,45 @@ public enum ProjectJunkFinder {
             return .nodeModules
         case ".next" where !siblings.isDisjoint(with: nodeMarkers):
             return .nextBuild
+        case ".nuxt" where !siblings.isDisjoint(with: nodeMarkers):
+            return .nuxtBuild
+        case ".turbo" where !siblings.isDisjoint(with: nodeMarkers):
+            return .turboCache
+        case ".parcel-cache" where !siblings.isDisjoint(with: nodeMarkers):
+            return .parcelCache
         case "dist" where !siblings.isDisjoint(with: nodeMarkers):
-            // Some projects commit dist/ (GitHub Actions ship it), so only
-            // list it when git is told to ignore it.
+
             return isGitIgnored(node, byPath: byPath) ? .dist : nil
         case "target":
             if !siblings.isDisjoint(with: rustMarkers) { return .rustTarget }
             if !siblings.isDisjoint(with: mavenMarkers) { return .mavenBuild }
             return nil
+        case ".build" where !siblings.isDisjoint(with: swiftMarkers):
+            return .swiftBuild
         case "build" where !siblings.isDisjoint(with: gradleMarkers):
             return .gradleBuild
+        case ".gradle" where !siblings.isDisjoint(with: gradleMarkers):
+            return .gradleCache
         case ".venv", "venv":
-            // pyvenv.cfg is written by every venv/virtualenv; a folder that
-            // merely happens to be called "venv" does not have one.
+
             guard node.childNames.contains("pyvenv.cfg") else { return nil }
             return siblings.isDisjoint(with: pythonMarkers) ? nil : .pythonVenv
+        case "__pycache__" where !siblings.isDisjoint(with: pythonMarkers):
+            return .pythonCache
+        case ".pytest_cache" where !siblings.isDisjoint(with: pythonMarkers):
+            return .pytestCache
         case "Pods" where !siblings.isDisjoint(with: podsMarkers):
-            // Many iOS repos commit Pods/ on purpose.
+
             return isGitIgnored(node, byPath: byPath) ? .cocoaPods : nil
+        case ".dart_tool" where !siblings.isDisjoint(with: dartMarkers):
+            return .dartTool
+        case "vendor" where !siblings.isDisjoint(with: vendorMarkers):
+            return isGitIgnored(node, byPath: byPath) ? .vendorDeps : nil
         default:
             return nil
         }
     }
 
-    /// Whether a `.gitignore` in the project, or in a folder above it up to
-    /// the repository root, names this folder. Simple line matching only:
-    /// `dist`, `dist/`, `/dist`, `**/dist`, `dist/*`, `dist/**`. A pattern
-    /// with a leading slash only applies to the folder holding that file.
-    /// Anything unmatched counts as not ignored, so the folder is left alone.
     static func isGitIgnored(_ node: ProjectTreeNode, byPath: [String: ProjectTreeNode]) -> Bool {
         var dirPath = (node.path as NSString).deletingLastPathComponent
         var isProjectFolder = true
@@ -162,7 +203,7 @@ public enum ProjectJunkFinder {
             where gitignoreLine(line, names: node.name, anchoredHere: isProjectFolder) {
                 return true
             }
-            // A .gitignore above the repository root does not apply.
+
             if dir.childNames.contains(".git") { break }
             let parent = (dirPath as NSString).deletingLastPathComponent
             if parent == dirPath { break }

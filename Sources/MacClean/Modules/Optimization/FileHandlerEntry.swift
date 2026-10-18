@@ -19,7 +19,7 @@ public struct HandlerEntry: Identifiable, Equatable, Sendable {
         } else if let scheme = urlScheme {
             return "\(scheme)://"
         }
-        return L10n.tr("未知", "Unknown", "Неизвестно")
+        return String(localized: "Unknown")
     }
 
     public var appBundleIdentifier: String? { roleAll }

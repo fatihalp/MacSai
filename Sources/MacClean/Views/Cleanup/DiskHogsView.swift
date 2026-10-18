@@ -77,11 +77,12 @@ struct DiskHogsView: View {
                     .listStyle(.inset)
                 }
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
@@ -112,8 +113,6 @@ struct DiskHogsView: View {
         }
     }
 
-    // MARK: - Sections
-
     @ViewBuilder private var dockerSection: some View {
         switch dockerState {
         case .notInstalled:
@@ -140,7 +139,7 @@ struct DiskHogsView: View {
                             dockerRowLabel(row)
                         }
                     } else {
-                        // Volumes: information only, never selectable.
+
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 11))
@@ -165,7 +164,7 @@ struct DiskHogsView: View {
             Text(row.category.pruneNote)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(3)
         }
     }
 
@@ -208,8 +207,6 @@ struct DiskHogsView: View {
         return DiskHogsText.olderRuntime + "  ·  " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
-    // MARK: - Confirmation copy
-
     private var pruneConfirmMessage: String {
         let lines = DockerPrune.commands(for: selectedDocker).map { "• \($0.category.label): \($0.category.pruneNote)" }
         return (lines + ["", DiskHogsText.permanentNote]).joined(separator: "\n")
@@ -222,9 +219,6 @@ struct DiskHogsView: View {
         return (lines + ["", DiskHogsText.permanentNote]).joined(separator: "\n")
     }
 
-    // MARK: - Work
-
-    /// One piece of work at a time, cancelled if the user leaves the screen.
     private func startWork(_ work: @escaping @MainActor () async -> Void) {
         workTask?.cancel()
         workTask = Task { await work() }

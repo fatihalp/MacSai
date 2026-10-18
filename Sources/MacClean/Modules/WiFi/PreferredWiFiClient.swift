@@ -1,8 +1,6 @@
 import Foundation
 import MacCleanKit
 
-/// Lists and forgets preferred Wi-Fi networks. Process / osascript are
-/// injected so tests never touch the live `networksetup`.
 struct PreferredWiFiClient: Sendable {
     typealias CommandResult = (stdout: String, stderr: String, status: Int32)
 
@@ -84,14 +82,14 @@ enum PreferredWiFiClientError: Error, Equatable {
     var localizedMessage: String {
         switch self {
         case .noWiFiHardware:
-            L10n.tr("未找到 Wi-Fi 硬件。", "No Wi-Fi hardware found.", "Адаптер Wi-Fi не найден.")
+            String(localized: "No Wi-Fi hardware found.")
         case .invalidDevice:
-            L10n.tr("无线接口名称无效，已中止操作。", "The Wi-Fi interface name was invalid, so the action was cancelled.", "Недопустимое имя интерфейса Wi-Fi — операция отменена.")
+            String(localized: "The Wi-Fi interface name was invalid, so the action was cancelled.")
         case .adminCancelled:
-            L10n.tr("已取消——未授予管理员权限。", "Cancelled — administrator access was not granted.", "Отменено: не предоставлены права администратора.")
+            String(localized: "Cancelled — administrator access was not granted.")
         case .commandFailed(let message):
             message.isEmpty
-                ? L10n.tr("无法更新已保存的 Wi-Fi 网络。", "Couldn't update saved Wi-Fi networks.", "Не удалось обновить сохранённые сети Wi-Fi.")
+                ? String(localized: "Couldn't update saved Wi-Fi networks.")
                 : message
         }
     }

@@ -4,19 +4,16 @@ import MacCleanKit
 
 public struct UninstallerModule: ScanModule {
     public let id = "uninstaller"
-    public var name: String { L10n.tr("卸载器", "Uninstaller", "Удаление приложений") }
+    public var name: String { String(localized: "Uninstaller") }
     public let category = ModuleCategory.applications
 
     public init() {}
 
     public func scan() async -> [ScanResult] {
-        // The uninstaller doesn't produce traditional scan results.
-        // It provides an app list with associated files.
+
         []
     }
 }
-
-// MARK: - App Discovery
 
 public actor AppDiscovery {
     private let resourceKeys: [URLResourceKey] = [
@@ -48,14 +45,6 @@ public actor AppDiscovery {
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    /// All `.app` bundles under `dir`, including those nested in subfolders
-    /// (e.g. `/Applications/Adobe/Photoshop.app`, `/Applications/Utilities/`),
-    /// which the old top-level-only scan missed (issue #120).
-    ///
-    /// `.skipsPackageDescendants` stops the walk at each bundle so we never list
-    /// helper apps buried inside another app (`…/Contents/Library/…/Helper.app`),
-    /// and `maxDepth` bounds the recursion so a huge non-app folder can't stall
-    /// discovery. Real installs nest an app one or two folders deep at most.
     static func appBundles(in dir: URL, maxDepth: Int = 4,
                            fileManager: FileManager = .default) -> [URL] {
         guard let enumerator = fileManager.enumerator(
@@ -69,7 +58,7 @@ public actor AppDiscovery {
             if enumerator.level >= maxDepth { enumerator.skipDescendants() }
             if url.pathExtension == "app" {
                 found.append(url)
-                enumerator.skipDescendants()   // never recurse into a bundle
+                enumerator.skipDescendants()
             }
         }
         return found
@@ -122,15 +111,11 @@ public actor AppDiscovery {
     }
 }
 
-// MARK: - App Path Finder (system-side wrapper around MacCleanKit.AppMatching)
-
 public struct AppPathFinder: Sendable {
     public typealias MatchLevel = AppMatching.MatchLevel
 
     public let maxLevel: MatchLevel
 
-    // Default stops at .versionStripped: the .companyName level matches the bare
-    // vendor token and would flag sibling apps from the same vendor (issue #98).
     public init(maxLevel: MatchLevel = .versionStripped) {
         self.maxLevel = maxLevel
     }
@@ -156,7 +141,6 @@ public struct AppPathFinder: Sendable {
             }
         }
 
-        // Also check system Library for launch daemons
         let systemDirs = [MCConstants.systemLaunchDaemons, MCConstants.systemLaunchAgents]
         for dirURL in systemDirs {
             guard let contents = try? fm.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)

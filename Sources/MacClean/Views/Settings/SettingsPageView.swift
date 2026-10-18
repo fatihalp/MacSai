@@ -3,10 +3,6 @@ import AppKit
 import ServiceManagement
 import MacCleanKit
 
-/// In-app Settings page rendered in the detail pane. Opened from the
-/// pinned sidebar footer, the Cmd-comma "Settings…" menu item, or
-/// macclean://module/settings. Replaced the separate Settings window
-/// (spec: docs/superpowers/specs/2026-06-05-settings-page-design.md).
 struct SettingsPageView: View {
     enum UpdateUIState: Equatable {
         case idle
@@ -22,8 +18,8 @@ struct SettingsPageView: View {
     @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
     @AppStorage("automaticUpdateChecks") private var automaticUpdateChecks = true
     @AppStorage("lastUpdateCheckDate") private var lastUpdateCheckTimestamp: Double = 0
-    @AppStorage(AppearanceManager.defaultsKey) private var appearanceRaw = AppearanceMode.dark.rawValue
-    @AppStorage(AppLanguage.defaultsKey, store: SharedAppState.defaults) private var appLanguageRaw = AppLanguage.system.rawValue
+    @AppStorage(AppearanceManager.defaultsKey) private var appearanceRaw = AppearanceMode.light.rawValue
+    @AppStorage(Localization.defaultsKey, store: SharedAppState.defaults) private var appLanguage = "en"
     @State private var launcher = MenuBarLauncher.shared
     @State private var loginLauncher = LaunchAtLoginManager.shared
     @State private var updateState: UpdateUIState = .idle
@@ -33,7 +29,6 @@ struct SettingsPageView: View {
     @State private var excludedFolders: [String] = FolderExclusionPreferences.paths
     @State private var exclusionError: String?
 
-    /// Selectable languages filtered by the search field (case-insensitive).
     private var filteredLanguages: [(name: String, lprojs: [String])] {
         guard !languageSearch.isEmpty else { return selectable }
         return selectable.filter { $0.name.localizedCaseInsensitiveContains(languageSearch) }
@@ -68,15 +63,13 @@ struct SettingsPageView: View {
         }
     }
 
-    // MARK: - Header (version + update check)
-
     private var headerSection: some View {
         Section {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(MCConstants.appName)
                         .font(.title2.weight(.semibold))
-                    Text(L10n.tr("版本 \(MCConstants.appVersion)", "Version \(MCConstants.appVersion)", "Версия \(MCConstants.appVersion)"))
+                    Text("Version \(MCConstants.appVersion)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -86,13 +79,10 @@ struct SettingsPageView: View {
             if case .available(let version, let url) = updateState {
                 updateAvailableRow(version: version, url: url)
             }
-            Toggle(L10n.tr("自动检查更新", "Automatically check for updates", "Автоматически проверять обновления"),
+            Toggle("Automatically check for updates",
                    isOn: $automaticUpdateChecks)
             if lastUpdateCheckTimestamp > 0 {
-                Text(L10n.tr(
-                    "上次检查：\(lastCheckedDescription)",
-                    "Last checked: \(lastCheckedDescription)",
-                    "Последняя проверка: \(lastCheckedDescription)"))
+                Text("Last checked: \(lastCheckedDescription)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -108,24 +98,24 @@ struct SettingsPageView: View {
     private var updateControl: some View {
         switch updateState {
         case .idle:
-            Button(L10n.tr("检查更新", "Check for Updates", "Проверить обновления")) { startUpdateCheck() }
+            Button("Check for Updates") { startUpdateCheck() }
         case .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text(L10n.tr("正在检查…", "Checking…", "Проверка…")).foregroundStyle(.secondary)
+                Text("Checking…").foregroundStyle(.secondary)
             }
         case .upToDate:
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text(L10n.tr("已是最新", "Up to date", "Установлена последняя версия"))
+                Text("Up to date")
             }
         case .available:
-            EmptyView()   // detail rendered by updateAvailableRow
+            EmptyView()
         case .failed(let message):
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Button(L10n.tr("重试", "Retry", "Повторить")) { startUpdateCheck() }
+                Button("Retry") { startUpdateCheck() }
             }
         }
     }
@@ -135,7 +125,7 @@ struct SettingsPageView: View {
         if UpdateChecker.isHomebrewInstall() {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("发现版本 \(version)。请使用 Homebrew 更新：", "Version \(version) is available. Update with Homebrew:", "Доступна версия \(version). Обновите через Homebrew:"))
+                    Text("Version \(version) is available. Update with Homebrew:")
                     Text(Self.brewUpgradeCommand)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
@@ -145,14 +135,14 @@ struct SettingsPageView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(Self.brewUpgradeCommand, forType: .string)
                 } label: {
-                    Label(L10n.tr("复制", "Copy", "Скопировать"), systemImage: "doc.on.doc")
+                    Label("Copy", systemImage: "doc.on.doc")
                 }
             }
         } else {
             HStack {
-                Text(L10n.tr("发现版本 \(version)。", "Version \(version) is available.", "Доступна версия \(version)."))
+                Text("Version \(version) is available.")
                 Spacer()
-                Button(L10n.tr("查看发布页", "View Release", "Открыть страницу релиза")) { NSWorkspace.shared.open(url) }
+                Button("View Release") { NSWorkspace.shared.open(url) }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -176,8 +166,6 @@ struct SettingsPageView: View {
         }
     }
 
-    // MARK: - General
-
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
             get: { launchAtLogin },
@@ -191,13 +179,12 @@ struct SettingsPageView: View {
     }
 
     private var generalSection: some View {
-        Section(L10n.tr("通用", "General", "Основные")) {
-            // Toggle flips instantly; the SMAppService round-trip runs in the
-            // background with a spinner (no main-thread block, no lag).
+        Section("General") {
+
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.tr("登录时启动", "Launch at login", "Запускать при входе"))
-                    Text(L10n.tr("登录 macOS 时自动打开 \(MCConstants.appName)。你也可以在“系统设置 → 通用 → 登录项”中管理。", "Open \(MCConstants.appName) automatically when you sign in to macOS. You can also manage this in System Settings → General → Login Items.", "Автоматически открывать \(MCConstants.appName) при входе в macOS. Управлять этим также можно в разделе «Системные настройки» → «Основные» → «Объекты входа и расширения»."))
+                    Text("Launch at login")
+                    Text("Open \(MCConstants.appName) automatically when you sign in to macOS. You can also manage this in System Settings → General → Login Items.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -205,14 +192,14 @@ struct SettingsPageView: View {
                 if loginLauncher.isBusy {
                     ProgressView().controlSize(.small)
                 }
-                Toggle(L10n.tr("登录时启动", "Launch at login", "Запускать при входе"), isOn: launchAtLoginBinding)
+                Toggle("Launch at login", isOn: launchAtLoginBinding)
                     .toggleStyle(.switch)
                     .labelsHidden()
                     .disabled(loginLauncher.isBusy)
             }
             .animation(.easeInOut(duration: 0.18), value: loginLauncher.isBusy)
             if loginLauncher.status == .requiresApproval {
-                Label(L10n.tr("需要在“系统设置 → 通用 → 登录项”中批准", "Needs approval in System Settings → General → Login Items", "Требуется разрешение в разделе «Системные настройки» → «Основные» → «Объекты входа и расширения»"),
+                Label("Needs approval in System Settings → General → Login Items",
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.caption)
@@ -225,8 +212,8 @@ struct SettingsPageView: View {
 
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.tr("在菜单栏显示 \(MCConstants.appName)", "Show \(MCConstants.appName) in the menu bar", "Показывать \(MCConstants.appName) в строке меню"))
-                    Text(L10n.tr("在屏幕顶部实时显示 CPU、内存、磁盘、电池和网络状态。点击可展开浮窗。", "Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.", "Показывает в верхней части экрана данные о CPU, памяти, диске, батарее и сети в реальном времени. Нажмите, чтобы раскрыть панель."))
+                    Text("Show \(MCConstants.appName) in the menu bar")
+                    Text("Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -234,7 +221,7 @@ struct SettingsPageView: View {
                 if launcher.isBusy {
                     ProgressView().controlSize(.small)
                 }
-                Toggle(L10n.tr("在菜单栏显示 \(MCConstants.appName)", "Show \(MCConstants.appName) in the menu bar", "Показывать \(MCConstants.appName) в строке меню"), isOn: $showMenuBarWidget)
+                Toggle("Show \(MCConstants.appName) in the menu bar", isOn: $showMenuBarWidget)
                     .toggleStyle(.switch)
                     .labelsHidden()
                     .disabled(launcher.isBusy)
@@ -250,11 +237,8 @@ struct SettingsPageView: View {
                 }
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.tr("菜单栏显示", "Menu bar display"))
-                    Text(L10n.tr(
-                        "选择应用图标旁显示的紧凑数值。GPU 或电池温度不可用时显示 --。",
-                        "Choose the compact value shown next to the app icon. Unavailable GPU or battery sensors appear as --."
-                    ))
+                    Text("Menu bar display")
+                    Text("Choose the compact value shown next to the app icon. Unavailable GPU or battery sensors appear as --.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
@@ -269,32 +253,28 @@ struct SettingsPageView: View {
         }
     }
 
-    // MARK: - Interface Language
-
     private var interfaceLanguageSection: some View {
-        Section(L10n.tr("界面语言", "Interface Language", "Язык интерфейса")) {
-            Picker(L10n.tr("语言", "Language", "Язык"), selection: $appLanguageRaw) {
-                ForEach(AppLanguage.allCases) { language in
-                    Text(language.pickerLabel).tag(language.rawValue)
+        Section("Interface Language") {
+            Picker("Language", selection: $appLanguage) {
+                ForEach(AppLanguage.all) { language in
+                    Text(language.name).tag(language.id)
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: appLanguageRaw) { _, newValue in
-                AppLanguage.current = AppLanguage(rawValue: newValue) ?? .fallback
+            .onChange(of: appLanguage) { _, newValue in
+                Localization.currentID = newValue
                 selectable = LanguagePreferences.selectableLanguages()
             }
 
-            Text(L10n.tr("切换后会立即应用到主界面和菜单栏小组件。", "Changes apply immediately to the main window and menu-bar widget.", "Язык сразу меняется в главном окне и виджете в строке меню."))
+            Text("Changes apply immediately to the main window and menu-bar widget.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
 
-    // MARK: - Appearance
-
     private var appearanceSection: some View {
-        Section(L10n.tr("外观", "Appearance", "Оформление")) {
-            Picker(L10n.tr("主题", "Theme", "Тема"), selection: $appearanceRaw) {
+        Section("Appearance") {
+            Picker("Theme", selection: $appearanceRaw) {
                 ForEach(AppearanceMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
                 }
@@ -306,51 +286,43 @@ struct SettingsPageView: View {
 
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.tr("移除背景颜色", "Remove background colors", "Убрать цветной фон"))
-                    Text(L10n.tr("将模块渐变背景替换为中性的深色背景，以提升可读性。", "Replace module gradient backgrounds with a neutral dark color for better readability.", "Заменяет градиентный фон модулей нейтральным тёмным цветом для лучшей читаемости."))
+                    Text("Remove background colors")
+                    Text("Replace module gradient backgrounds with a neutral dark color for better readability.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Toggle(L10n.tr("移除背景颜色", "Remove background colors", "Убрать цветной фон"), isOn: $removeBackgroundColors)
+                Toggle("Remove background colors", isOn: $removeBackgroundColors)
                     .toggleStyle(.switch)
                     .labelsHidden()
             }
         }
     }
 
-    // MARK: - Language Cleanup (carried over from the old Settings window)
-
     private var languageSection: some View {
-        Section(L10n.tr("语言清理", "Language Cleanup", "Очистка языковых файлов")) {
-            Text(L10n.tr(
-                "英文、基础资源、中文、俄文和德文会始终保留。已勾选的语言会保留；未勾选的语言文件可由“系统垃圾”移除。",
-                "English, Base resources, Chinese, Russian, and German are always kept. Checked languages are preserved; unchecked language files can be removed by System Junk.",
-                "Английский, базовые ресурсы, китайский, русский и немецкий языки сохраняются всегда. Отмеченные языки сохраняются; файлы неотмеченных языков можно удалить в разделе «Системный мусор»."
-            ))
+        Section("Language Cleanup") {
+            Text("English, Base resources, Chinese, Russian, and German are always kept. Checked languages are preserved; unchecked language files can be removed by System Junk.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             if selectable.isEmpty {
-                Text(L10n.tr("正在检测已安装语言…", "Detecting installed languages…", "Поиск установленных языков…"))
+                Text("Detecting installed languages…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                TextField(L10n.tr("搜索语言", "Search languages", "Поиск языков"), text: $languageSearch)
+                TextField("Search languages", text: $languageSearch)
                     .textFieldStyle(.roundedBorder)
 
                 if filteredLanguages.isEmpty {
-                    Text(L10n.tr("没有语言匹配“\(languageSearch)”。", "No languages match “\(languageSearch)”.", "Языки по запросу «\(languageSearch)» не найдены."))
+                    Text("No languages match “\(languageSearch)”.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                // Fixed-height scroll box: ~100 languages would otherwise
-                // stretch the page and push the About section out of reach.
+
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredLanguages, id: \.name) { lang in
-                            // One toggle covers every folder variant of the
-                            // language (e.g. "fr.lproj" + legacy "French.lproj").
+
                             HStack {
                                 Text(lang.name)
                                 Spacer()
@@ -377,20 +349,14 @@ struct SettingsPageView: View {
         }
     }
 
-    // MARK: - Excluded Folders (issue #141)
-
     private var excludedFoldersSection: some View {
-        Section(L10n.tr("排除文件夹", "Excluded Folders", "Исключённые папки")) {
-            Text(L10n.tr(
-                "这些文件夹及其子项不会出现在清理扫描结果中，也无法被 \(MCConstants.appName) 删除（包括粉碎器）。仅限主目录或 /Volumes 下的路径。",
-                "These folders and their contents are hidden from cleanup scans and cannot be deleted by \(MCConstants.appName) (including Shredder). Only paths under your home folder or /Volumes.",
-                "Эти папки и их содержимое не показываются в сканах очистки и не могут быть удалены \(MCConstants.appName) (включая Шредер). Только пути в домашней папке или /Volumes."
-            ))
+        Section("Excluded Folders") {
+            Text("These folders and their contents are hidden from cleanup scans and cannot be deleted by \(MCConstants.appName) (including Shredder). Only paths under your home folder or /Volumes.")
             .font(.caption)
             .foregroundStyle(.secondary)
 
             if excludedFolders.isEmpty {
-                Text(L10n.tr("尚未排除任何文件夹。", "No folders excluded yet.", "Пока нет исключённых папок."))
+                Text("No folders excluded yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -401,7 +367,7 @@ struct SettingsPageView: View {
                             .lineLimit(2)
                             .textSelection(.enabled)
                         Spacer(minLength: 8)
-                        Button(L10n.tr("移除", "Remove", "Удалить"), role: .destructive) {
+                        Button("Remove", role: .destructive) {
                             FolderExclusionPreferences.remove(path)
                             excludedFolders = FolderExclusionPreferences.paths
                             exclusionError = nil
@@ -411,7 +377,7 @@ struct SettingsPageView: View {
                 }
             }
 
-            Button(L10n.tr("添加文件夹…", "Add Folder…", "Добавить папку…")) {
+            Button("Add Folder…") {
                 addExcludedFolder()
             }
 
@@ -428,12 +394,8 @@ struct SettingsPageView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = L10n.tr("排除", "Exclude", "Исключить")
-        panel.message = L10n.tr(
-            "选择要从清理中排除的文件夹。",
-            "Choose a folder to exclude from cleanup.",
-            "Выберите папку, которую нужно исключить из очистки."
-        )
+        panel.prompt = String(localized: "Exclude")
+        panel.message = String(localized: "Choose a folder to exclude from cleanup.")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let path = url.path(percentEncoded: false)
         if FolderExclusionPreferences.add(path) {
@@ -452,41 +414,35 @@ struct SettingsPageView: View {
             existing: FolderExclusionPreferences.paths
         ) {
         case .allow:
-            return L10n.tr("无法添加该文件夹。", "Couldn't add that folder.", "Не удалось добавить эту папку.")
+            return String(localized: "Couldn't add that folder.")
         case .reject(.notAbsolute):
-            return L10n.tr("请选择绝对路径。", "Choose an absolute path.", "Выберите абсолютный путь.")
+            return String(localized: "Choose an absolute path.")
         case .reject(.entireHome):
-            return L10n.tr("不能排除整个主目录。", "You can't exclude your entire home folder.", "Нельзя исключить всю домашнюю папку.")
+            return String(localized: "You can't exclude your entire home folder.")
         case .reject(.entireVolumesRoot):
-            return L10n.tr("不能排除整个 /Volumes。", "You can't exclude all of /Volumes.", "Нельзя исключить весь /Volumes.")
+            return String(localized: "You can't exclude all of /Volumes.")
         case .reject(.outsideAllowedRoots):
-            return L10n.tr("只能排除主目录或 /Volumes 下的文件夹。", "Only folders under your home directory or /Volumes can be excluded.", "Можно исключать только папки в домашнем каталоге или /Volumes.")
+            return String(localized: "Only folders under your home directory or /Volumes can be excluded.")
         case .reject(.atCapacity):
-            return L10n.tr(
-                "最多可排除 \(FolderExclusionPreferences.defaultMaxCount) 个文件夹。",
-                "You can exclude at most \(FolderExclusionPreferences.defaultMaxCount) folders.",
-                "Можно исключить не больше \(FolderExclusionPreferences.defaultMaxCount) папок."
-            )
+            return "You can exclude at most \(FolderExclusionPreferences.defaultMaxCount) folders."
         case .reject(.alreadyCovered):
-            return L10n.tr("该路径已被现有排除项覆盖。", "That path is already covered by an existing exclusion.", "Этот путь уже покрыт существующим исключением.")
+            return String(localized: "That path is already covered by an existing exclusion.")
         }
     }
 
-    // MARK: - About
-
     private var aboutSection: some View {
-        Section(L10n.tr("关于", "About", "О программе")) {
+        Section("About") {
             aboutRow(icon: "chevron.left.forwardslash.chevron.right", tint: .orange,
-                     title: L10n.tr("源代码", "Source code", "Исходный код"), caption: L10n.tr("在 GitHub 上浏览代码库", "Browse the codebase on GitHub", "Открыть репозиторий на GitHub"),
+                     title: String(localized: "Source code"), caption: String(localized: "Browse the codebase on GitHub"),
                      url: MCConstants.repoURL)
             aboutRow(icon: "exclamationmark.bubble", tint: .blue,
-                     title: L10n.tr("报告问题", "Report an issue", "Сообщить о проблеме"), caption: L10n.tr("提交错误报告和功能请求", "Bug reports and feature requests", "Отчёты об ошибках и предложения"),
+                     title: String(localized: "Report an issue"), caption: String(localized: "Bug reports and feature requests"),
                      url: MCConstants.issuesURL)
             aboutRow(icon: "tag", tint: .green,
-                     title: L10n.tr("发行说明", "Release notes", "Примечания к выпуску"), caption: L10n.tr("更新日志和历史版本", "Changelog and previous versions", "История изменений и предыдущие версии"),
+                     title: String(localized: "Release notes"), caption: String(localized: "Changelog and previous versions"),
                      url: MCConstants.releasesURL)
             aboutRow(icon: "cup.and.saucer.fill", tint: .yellow,
-                     title: L10n.tr("支持 Mac Sai", "Support Mac Sai", "Поддержать Mac Sai"), caption: L10n.tr("请开发者喝杯咖啡", "Buy the developer a coffee", "Угостить разработчика кофе"),
+                     title: String(localized: "Support Mac Sai"), caption: String(localized: "Buy the developer a coffee"),
                      url: MCConstants.supportURL)
         }
     }
@@ -497,10 +453,12 @@ struct SettingsPageView: View {
         } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(tint.opacity(0.18)).frame(width: 32, height: 32)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(tint)
+                        .frame(width: 28, height: 28)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(tint)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -517,14 +475,12 @@ struct SettingsPageView: View {
         .accessibilityAddTraits(.isLink)
     }
 
-    // MARK: - Widget status (carried over from the old Settings window)
-
     @ViewBuilder
     private var widgetStatusRow: some View {
         HStack {
             Image(systemName: statusGlyph)
                 .foregroundStyle(statusColor)
-            Text(L10n.tr("组件状态：", "Widget status:", "Состояние виджета:"))
+            Text("Widget status:")
                 .foregroundStyle(.secondary)
             Text(statusText)
                 .font(.system(.body, design: .monospaced))
@@ -553,11 +509,11 @@ struct SettingsPageView: View {
 
     private var statusText: String {
         switch launcher.statusSnapshot {
-        case .enabled: return L10n.tr("运行中")
-        case .notRegistered: return L10n.tr("未注册", "not registered", "не зарегистрирован")
-        case .notFound: return L10n.tr("未在应用包中找到辅助组件", "helper not found in bundle", "вспомогательный компонент не найден в пакете приложения")
-        case .requiresApproval: return L10n.tr("需要在“系统设置 → 登录项”中批准", "needs approval in System Settings → Login Items", "требуется разрешение в разделе «Системные настройки» → «Основные» → «Объекты входа и расширения»")
-        @unknown default: return L10n.tr("未知")
+        case .enabled: return String(localized: "Running")
+        case .notRegistered: return String(localized: "not registered")
+        case .notFound: return String(localized: "helper not found in bundle")
+        case .requiresApproval: return String(localized: "needs approval in System Settings → Login Items")
+        @unknown default: return String(localized: "Unknown")
         }
     }
 }

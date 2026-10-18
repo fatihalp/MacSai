@@ -3,17 +3,6 @@ import AppKit
 import OSLog
 import MacCleanKit
 
-/// Owns the menu-bar widget's live data and polls for it **continuously from
-/// app launch**, independent of the popover.
-///
-/// The previous design started polling from the popover content's `.onAppear`
-/// and stopped it on `.onDisappear`. For `MenuBarExtra(.window)` that hook only
-/// fires when the popover is opened, and on some setups (e.g. Intel / macOS
-/// 14.x) it doesn't fire reliably even then — so collection never started and
-/// the panel was stuck on its loading spinner forever. Driving the loop from
-/// `applicationDidFinishLaunching` instead removes that dependency entirely:
-/// stats are gathered the moment the app launches, the popover shows data the
-/// instant it opens, and the menu-bar label is populated from the start.
 @MainActor
 @Observable
 final class MenuStatsModel {
@@ -38,8 +27,6 @@ final class MenuStatsModel {
 
     private init() {}
 
-    /// Begin the continuous polling loop. Idempotent: safe to call more than
-    /// once (e.g. if relaunch lifecycle fires twice).
     func start() {
         guard pollingTask == nil else { return }
         Self.log.info("stats polling started")
@@ -53,9 +40,7 @@ final class MenuStatsModel {
 
     private func run() async {
         while !Task.isCancelled {
-            // Assign each metric the moment it's ready, each fenced with a
-            // timeout so one wedged syscall can't blank the panel: the loop
-            // keeps going and the last-known value stays on screen.
+
             if let s = await timed("stats", budget: .seconds(2), { await self.statsCollector.collect() }) {
                 stats = s
                 await healthMonitor.evaluate(stats: s)
@@ -77,9 +62,6 @@ final class MenuStatsModel {
         }
     }
 
-    /// Run one collector step under a timeout, returning nil if it overruns its
-    /// budget so the loop keeps going. Slow / timed-out steps are logged so a
-    /// hang can be pinned to a specific collector from a user's Console.
     private func timed<T: Sendable>(
         _ label: String,
         budget: Duration,
@@ -100,13 +82,8 @@ final class MenuStatsModel {
     }
 }
 
-/// Starts continuous stats polling at launch via the AppKit lifecycle, which
-/// (unlike the SwiftUI `MenuBarExtra` view hooks) fires reliably regardless of
-/// whether the popover is ever opened. `@preconcurrency` keeps the conformance
-/// building on CI's older SDK, where the delegate protocol isn't yet annotated
-/// `@MainActor`.
 @MainActor
-final class MenuAppDelegate: NSObject, @preconcurrency NSApplicationDelegate {
+final class MenuAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MenuStatsModel.shared.start()
     }

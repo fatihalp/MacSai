@@ -1,6 +1,5 @@
 import Foundation
 
-/// One login item as reported by System Events.
 public struct ParsedLoginItem: Equatable, Sendable {
     public let name: String
     public let path: String?
@@ -13,10 +12,6 @@ public struct ParsedLoginItem: Equatable, Sendable {
     }
 }
 
-/// Parses `osascript` output for a list of `{name:…, path:…, hidden:…}`
-/// records. osascript prints the whole list on a single line, e.g.
-///   name:A, path:/Applications/A.app, hidden:false, name:B, path:/…, hidden:true
-/// so records are split where a new `name` key starts, not per line.
 public enum LoginItemsOutput {
     public static func parse(_ output: String) -> [ParsedLoginItem] {
         var items: [ParsedLoginItem] = []

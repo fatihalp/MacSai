@@ -1,14 +1,5 @@
 import Foundation
 
-/// Classifies Uninstaller leftover paths for “Reset to Defaults” (issue #52).
-///
-/// Reset restores a fresh-install *settings* state: caches, preferences, and
-/// saved application state (plus closely related regenerable session data).
-/// It never touches the `.app` bundle, Application Support / Containers
-/// (licenses, databases, documents), or launch agents / plug-ins / helpers.
-///
-/// Pure: no FileManager. Path roots come from `MCConstants` so tests can
-/// assert against the same prefixes SafetyGuard uses.
 public enum AppResetPolicy {
 
     public enum Decision: Equatable, Sendable {
@@ -37,8 +28,6 @@ public enum AppResetPolicy {
         return .keepSystemIntegration
     }
 
-    /// Intersection of the user's checkbox selection with resetable leftovers.
-    /// The app bundle is never returned, even if it was selected.
     public static func resetableItems(
         from associatedFiles: [FileItem],
         selected: Set<URL>,
@@ -48,8 +37,6 @@ public enum AppResetPolicy {
             selected.contains(item.url) && isResetable(url: item.url, appBundle: appBundle)
         }
     }
-
-    // MARK: - Roots
 
     private static let resetableRoots: [URL] = [
         MCConstants.userCaches,
@@ -68,8 +55,6 @@ public enum AppResetPolicy {
         MCConstants.userAppScripts,
     ]
 
-    /// True if `path` is `root` or a descendant, using a `/` boundary so
-    /// `.../Caches` does not match `.../CachesEvil`.
     private static func isInside(_ path: String, root: String) -> Bool {
         if path == root { return true }
         let prefix = root.hasSuffix("/") ? root : root + "/"

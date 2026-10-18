@@ -135,6 +135,9 @@ PLIST
 if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
 fi
+if [ -d "Sources/MacCleanKit/Resources" ]; then
+    cp -R Sources/MacCleanKit/Resources/*.lproj "${APP_BUNDLE}/Contents/Resources/"
+fi
 
 # Step 2.5: Nest the menu bar widget inside the main app as a LoginItem.
 # SMAppService.loginItem(identifier:) expects the helper at this exact path
@@ -197,6 +200,9 @@ MENU_PLIST
 
 if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "${MENU_APP}/Contents/Resources/"
+fi
+if [ -d "Sources/MacCleanKit/Resources" ]; then
+    cp -R Sources/MacCleanKit/Resources/*.lproj "${MENU_APP}/Contents/Resources/"
 fi
 
 # Step 3: Entitlements (needed for notarization with hardened runtime).

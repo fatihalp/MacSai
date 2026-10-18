@@ -1,6 +1,5 @@
 import Foundation
 
-/// A saved preferred Wi-Fi network on one hardware device (issue #50).
 public struct PreferredWiFiNetwork: Hashable, Sendable, Identifiable {
     public var id: String { device + "\u{0}" + ssid }
     public let device: String
@@ -12,7 +11,6 @@ public struct PreferredWiFiNetwork: Hashable, Sendable, Identifiable {
     }
 }
 
-/// Parses `networksetup` stdout. No Process — fixtures in tests.
 public enum PreferredWiFiParser {
 
     public static func wifiDevices(from hardwarePortsOutput: String) -> [String] {
@@ -69,8 +67,6 @@ public enum PreferredWiFiParser {
     }
 }
 
-/// Argv and quoted-shell builders for `networksetup`. Device names are
-/// allowlisted so a parser bug cannot smuggle shell metacharacters.
 public enum PreferredWiFiCommands {
     public static let networksetup = "/usr/sbin/networksetup"
 

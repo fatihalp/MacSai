@@ -4,16 +4,13 @@ import MacCleanKit
 
 public struct SystemJunkModule: ScanModule {
     public let id = "system_junk"
-    public var name: String { L10n.tr("系统垃圾", "System Junk", "Системный мусор") }
+    public var name: String { String(localized: "System Junk") }
     public let category = ModuleCategory.cleanup
 
     private let scanner = TargetedScanner()
 
     public init() {}
 
-    /// All categories the System Junk module runs. The pure target / filter
-    /// declarations live in MacCleanKit and are tested there; this list is
-    /// the only place the *full set* is composed.
     public static let allCategories: [JunkCategory] = [
         UserCacheCategory(),
         SystemCacheCategory(),
@@ -43,9 +40,7 @@ public struct SystemJunkModule: ScanModule {
         return await withTaskGroup(of: ScanResult?.self) { group in
             for cat in categories {
                 group.addTask {
-                    // UniversalBinaries needs a system-side scanner (walks
-                    // .app bundles, shells out to lipo, asks the policy)
-                    // rather than the targeted path enumerator.
+
                     if cat.scanCategory == .universalBinaries {
                         let items = UniversalBinariesScanner.scanAllApplicationsDirectories()
                         guard !items.isEmpty else { return nil }
@@ -55,8 +50,7 @@ public struct SystemJunkModule: ScanModule {
                             autoSelect: cat.scanCategory.autoSelect
                         )
                     }
-                    // App leftovers: enumerates the safe Library subdirs for
-                    // bundle-id-named entries whose owning app is uninstalled.
+
                     if cat.scanCategory == .appLeftovers {
                         let items = AppLeftoversScanner.scan()
                         guard !items.isEmpty else { return nil }
@@ -66,10 +60,7 @@ public struct SystemJunkModule: ScanModule {
                             autoSelect: cat.scanCategory.autoSelect
                         )
                     }
-                    // Deleted users: /Users folders that no longer match an
-                    // active account per `dscl`. Its own scanner (not
-                    // TargetedScanner) cross-checks against the live user
-                    // list rather than a static path target.
+
                     if cat.scanCategory == .deletedUsers {
                         let items = DeletedUsersScanner.scanForDeletedUserFolders()
                         guard !items.isEmpty else { return nil }
@@ -82,7 +73,6 @@ public struct SystemJunkModule: ScanModule {
                     let items = await scanner.scan(targets: cat.targets)
                     var filtered = items
 
-                    // Apply category-specific post-filter logic.
                     if let brokenPrefs = cat as? BrokenPreferencesCategory {
                         filtered = brokenPrefs.filterBroken(
                             items,

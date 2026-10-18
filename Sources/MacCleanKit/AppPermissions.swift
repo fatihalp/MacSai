@@ -1,8 +1,5 @@
 import Foundation
 
-/// The five privacy services issue #49 asks to surface. TCC service IDs and
-/// System Settings URL fragments are implementation details of macOS; the
-/// FDA fragment matches `PermissionManager`.
 public enum PrivacyPermission: String, CaseIterable, Sendable, Identifiable {
     case camera
     case microphone
@@ -94,7 +91,7 @@ public struct AppPermissionGrant: Equatable, Hashable, Sendable, Identifiable {
 }
 
 public enum TCCAccessParser {
-    /// `auth_value`: 0 denied, 2 allowed, 3 limited (Big Sur+ schema).
+
     public static func grants(from rows: [TCCAccessRow]) -> [AppPermissionGrant] {
         var seen: Set<String> = []
         var result: [AppPermissionGrant] = []
@@ -137,7 +134,6 @@ public struct AppPermissionApp: Equatable, Hashable, Sendable, Identifiable {
         self.grants = grants
     }
 
-    /// Unique permissions on this app, in `PrivacyPermission.allCases` order.
     public var permissions: [PrivacyPermission] {
         PrivacyPermission.allCases.filter { permission in
             grants.contains { $0.permission == permission }
@@ -145,8 +141,6 @@ public struct AppPermissionApp: Equatable, Hashable, Sendable, Identifiable {
     }
 }
 
-/// Groups TCC grants by app so the UI can show a by-app overview
-/// (the view System Settings does not provide).
 public enum AppPermissionOverview {
     public static func apps(from grants: [AppPermissionGrant]) -> [AppPermissionApp] {
         var buckets: [String: [AppPermissionGrant]] = [:]

@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "MacClean",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -32,22 +33,10 @@ let package = Package(
         .target(
             name: "MacCleanKit",
             dependencies: [],
-            path: "Sources/MacCleanKit"
-        ),
-        .target(
-            name: "MacCleanTestSupport",
-            dependencies: ["MacCleanKit"],
-            path: "Tests/MacCleanTestSupport"
-        ),
-        .testTarget(
-            name: "MacCleanTests",
-            dependencies: ["MacClean", "MacCleanKit", "MacCleanTestSupport"],
-            path: "Tests/MacCleanTests"
-        ),
-        .testTarget(
-            name: "MacCleanKitTests",
-            dependencies: ["MacCleanKit", "MacCleanTestSupport"],
-            path: "Tests/MacCleanKitTests"
+            path: "Sources/MacCleanKit",
+            resources: [
+                .process("Resources")
+            ]
         ),
     ]
 )

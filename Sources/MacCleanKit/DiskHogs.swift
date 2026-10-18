@@ -10,46 +10,25 @@ public enum DockerDiskCategory: String, Equatable, Sendable, CaseIterable, Ident
 
     public var label: String {
         switch self {
-        case .images: L10n.tr("镜像", "Images", "Образы")
-        case .containers: L10n.tr("容器", "Containers", "Контейнеры")
-        case .volumes: L10n.tr("卷", "Volumes", "Тома")
-        case .buildCache: L10n.tr("构建缓存", "Build Cache", "Кэш сборки")
+        case .images: String(localized: "Images")
+        case .containers: String(localized: "Containers")
+        case .volumes: String(localized: "Volumes")
+        case .buildCache: String(localized: "Build Cache")
         }
     }
 
-    /// Volumes can hold database data (named volumes, and the anonymous
-    /// volumes images like postgres declare), and on Docker before 23
-    /// `volume prune` removes named volumes too. Mac Sai only reports them.
     public var isPrunable: Bool { self != .volumes }
 
-    /// What pruning this category actually removes, in plain words. Shown on
-    /// the row and repeated in the confirmation.
     public var pruneNote: String {
         switch self {
         case .images:
-            L10n.tr(
-                "清理只会删除悬空（无标签）镜像，带标签的镜像会保留。",
-                "Pruning removes only dangling (untagged) images. Tagged images are kept.",
-                "Очистка удаляет только висячие (без тега) образы. Образы с тегами сохраняются."
-            )
+            String(localized: "Pruning removes only dangling (untagged) images. Tagged images are kept.")
         case .containers:
-            L10n.tr(
-                "清理会永久删除所有已停止的容器及其中的数据。正在运行的容器不受影响。",
-                "Pruning permanently deletes every stopped container and the data inside it. Running containers are not touched.",
-                "Очистка безвозвратно удаляет все остановленные контейнеры и данные внутри них. Работающие контейнеры не затрагиваются."
-            )
+            String(localized: "Pruning permanently deletes every stopped container and the data inside it. Running containers are not touched.")
         case .volumes:
-            L10n.tr(
-                "卷可能保存着数据库等数据，Mac Sai 不会清理它们。如需删除，请使用 Docker Desktop 或 Docker 命令行。",
-                "Volumes can hold database data, so Mac Sai leaves them alone. To remove them, use Docker Desktop or the Docker CLI.",
-                "Тома могут хранить данные баз данных, поэтому Mac Sai их не трогает. Чтобы удалить их, используйте Docker Desktop или Docker CLI."
-            )
+            String(localized: "Volumes can hold database data, so Mac Sai leaves them alone. To remove them, use Docker Desktop or the Docker CLI.")
         case .buildCache:
-            L10n.tr(
-                "清理会删除悬空的构建缓存。下次构建可能会变慢。",
-                "Pruning removes dangling build cache. Your next build may be slower.",
-                "Очистка удаляет висячий кэш сборки. Следующая сборка может пройти медленнее."
-            )
+            String(localized: "Pruning removes dangling build cache. Your next build may be slower.")
         }
     }
 }
@@ -68,11 +47,9 @@ public struct DockerDiskRow: Equatable, Sendable, Identifiable {
 }
 
 public enum DockerSystemDFParser {
-    /// Arguments for the probe. A `{{json .}}` template prints one object per
-    /// line on every Docker CLI since 1.13; the table layout is less stable.
+
     public static let arguments = ["system", "df", "--format", "{{json .}}"]
 
-    /// Parses JSON lines from ``arguments``, falling back to the plain table.
     public static func parse(_ text: String) -> [DockerDiskRow] {
         let jsonRows = parseJSONLines(text)
         return jsonRows.isEmpty ? parseTable(text) : jsonRows
@@ -104,8 +81,7 @@ public enum DockerSystemDFParser {
             guard let category = category(for: columns[0], second: columns[1]) else {
                 return nil
             }
-            // TYPE TOTAL ACTIVE SIZE RECLAIMABLE. TYPE is two words for
-            // "Local Volumes" and "Build Cache", so SIZE shifts right by one.
+
             let typeWordCount = category == .volumes || category == .buildCache ? 2 : 1
             guard columns.count >= typeWordCount + 4 else { return nil }
             let size = columns[typeWordCount + 2]
@@ -128,9 +104,6 @@ public enum DockerSystemDFParser {
 public enum DockerPrune {
     public static let defaultSelection: Set<DockerDiskCategory> = []
 
-    /// One Docker CLI command per selected category, in a fixed order.
-    /// Volumes are never pruned, whatever the selection says. No `-a`: image
-    /// and builder prune stay limited to dangling data.
     public static func commands(for selection: Set<DockerDiskCategory>) -> [(category: DockerDiskCategory, arguments: [String])] {
         var commands: [(DockerDiskCategory, [String])] = []
         if selection.contains(.images) { commands.append((.images, ["image", "prune", "-f"])) }
@@ -156,7 +129,6 @@ public struct SimulatorDevice: Equatable, Sendable, Identifiable {
         self.runtime = runtime
     }
 
-    /// "com.apple.CoreSimulator.SimRuntime.iOS-17-5" reads as "iOS 17.5".
     public var runtimeDisplayName: String {
         guard let marker = runtime.range(of: "SimRuntime.") else { return runtime }
         let parts = runtime[marker.upperBound...].split(separator: "-")
@@ -168,8 +140,7 @@ public struct SimulatorDevice: Equatable, Sendable, Identifiable {
 
 public struct SimulatorRuntime: Equatable, Sendable, Identifiable {
     public var id: String { identifier }
-    /// Disk-image identifier from `simctl runtime list -j`; what
-    /// `simctl runtime delete` expects.
+
     public let identifier: String
     public let runtimeIdentifier: String
     public let platform: String
@@ -190,8 +161,6 @@ public struct SimulatorRuntime: Equatable, Sendable, Identifiable {
 public enum SimulatorInventory {
     public static let defaultSelection: Set<String> = []
 
-    /// Unavailable devices from `simctl list devices -j`. A booted device is
-    /// never offered, even if simctl calls it unavailable.
     public static func parseDevices(_ data: Data) -> [SimulatorDevice] {
         struct Payload: Decodable {
             struct Device: Decodable {
@@ -214,10 +183,6 @@ public enum SimulatorInventory {
         .sorted { ($0.runtime, $0.name) < ($1.runtime, $1.name) }
     }
 
-    /// Deletable runtimes from `simctl runtime list -j`, minus the newest
-    /// version of each platform. The newest is computed over every runtime
-    /// (bundled ones included), and a runtime whose platform or version can't
-    /// be read is never offered.
     public static func parseRuntimes(_ data: Data) -> [SimulatorRuntime] {
         struct Entry: Decodable {
             let identifier: String?
@@ -256,8 +221,6 @@ public enum SimulatorInventory {
         .sorted { ($0.platform, $0.version) < ($1.platform, $1.version) }
     }
 
-    /// Platform name from "com.apple.CoreSimulator.SimRuntime.iOS-17-5",
-    /// or from "com.apple.platform.iphonesimulator" when that is all there is.
     static func platform(runtimeIdentifier: String?, platformIdentifier: String?) -> String? {
         if let runtimeIdentifier, let marker = runtimeIdentifier.range(of: "SimRuntime.") {
             let name = runtimeIdentifier[marker.upperBound...].split(separator: "-").first.map(String.init)
@@ -272,14 +235,10 @@ public enum SimulatorInventory {
         }
     }
 
-    /// simctl identifiers are UUIDs. Anything else (including the `all` and
-    /// `unavailable` aliases, or a leading dash) is refused before it can
-    /// reach a delete command.
     public static func isSafeIdentifier(_ identifier: String) -> Bool {
         UUID(uuidString: identifier) != nil
     }
 
-    /// Arguments for the real simctl binary (not the xcrun shim).
     public static func deleteArguments(deviceUDID: String) -> [String]? {
         isSafeIdentifier(deviceUDID) ? ["delete", deviceUDID] : nil
     }
@@ -288,8 +247,6 @@ public enum SimulatorInventory {
         isSafeIdentifier(identifier) ? ["runtime", "delete", identifier] : nil
     }
 
-    /// `<developer dir>/usr/bin/simctl` from `xcode-select -p` output, or nil
-    /// for a Command Line Tools-only Mac (which has no simctl).
     public static func simctlPath(developerDirectory: String, isExecutable: (String) -> Bool) -> String? {
         let dir = developerDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         guard dir.hasPrefix("/") else { return nil }

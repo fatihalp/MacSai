@@ -4,7 +4,7 @@ import MacCleanKit
 
 public struct DuplicatesModule: ScanModule {
     public let id = "duplicates"
-    public var name: String { L10n.tr("重复文件", "Duplicates", "Дубликаты") }
+    public var name: String { String(localized: "Duplicates") }
     public let category = ModuleCategory.files
     public let includedInSmartScan = false
 
@@ -12,11 +12,6 @@ public struct DuplicatesModule: ScanModule {
 
     public init() {}
 
-    /// Scan targets for the duplicate finder: the home folder, minus hidden
-    /// (dot-prefixed) subtrees — those hold app/developer state (caches,
-    /// extensions, configs) rather than user documents, and surfacing them as
-    /// "duplicates" both buries real finds in noise and risks breaking apps
-    /// that need their copy at that exact path.
     private var scanTargets: [ScanTarget] {
         [
             ScanTarget(
@@ -41,11 +36,6 @@ public struct DuplicatesModule: ScanModule {
             .filteringUncleanable()
     }
 
-    /// Like `scan()`, but returns the full grouped structure the Duplicates UI
-    /// shows: each set's kept original plus its removable copies. Only the
-    /// removable copies are filtered for cleanability — the original is never
-    /// deleted, so it doesn't matter whether the current process could trash
-    /// it. Sets with no cleanable extras left are dropped by `displayGroups`.
     public func scanDisplayGroups() async -> [DuplicateDisplayGroup] {
         let items = await scanner.scan(targets: scanTargets)
         let files = items.filter { !$0.isDirectory }
@@ -56,14 +46,10 @@ public struct DuplicatesModule: ScanModule {
         return DuplicateDetection.displayGroups(cleanableGroups)
     }
 
-    /// Run the full pipeline. Pure decisions come from `DuplicateDetection`
-    /// in MacCleanKit; the hashing itself uses CryptoKit + FileHandle and
-    /// lives here.
     public func findDuplicates(_ files: [FileItem]) async -> [[FileItem]] {
-        // Stage 1: size grouping (pure)
+
         let candidates = DuplicateDetection.sizeGroups(files)
 
-        // Stage 2: partial hash (parallel)
         let partialResults = await withTaskGroup(of: (key: String, item: FileItem)?.self) {
             group -> [(key: String, item: FileItem)] in
             for sizeGroup in candidates {
@@ -80,7 +66,6 @@ public struct DuplicatesModule: ScanModule {
         }
         let partialCandidates = DuplicateDetection.partialGroups(partialResults)
 
-        // Stage 3: full hash (parallel)
         let fullResults = await withTaskGroup(of: (key: String, item: FileItem)?.self) {
             group -> [(key: String, item: FileItem)] in
             for partialGroup in partialCandidates {
@@ -96,7 +81,6 @@ public struct DuplicatesModule: ScanModule {
             return out
         }
 
-        // Stage 4: dedup hard links (pure)
         return DuplicateDetection.fullGroupsAndDedupHardLinks(fullResults)
     }
 

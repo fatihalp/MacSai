@@ -1,35 +1,79 @@
 import Foundation
 import MacCleanKit
 
-/// Walks a user-chosen root and builds `ProjectTreeNode`s for the junk finder.
 public struct ProjectJunkScanner: Sendable {
     public init() {}
 
-    /// Junk folder names: listed when a project marker sits beside them, and
-    /// never descended into (they can hold hundreds of thousands of files).
     static let junkNames: Set<String> = [
-        "node_modules", "target", "build", "dist", ".next", "Pods", ".venv", "venv",
+        "node_modules", "target", "build", ".build", "dist", ".next", ".nuxt",
+        ".turbo", ".parcel-cache", "Pods", ".venv", "venv", "__pycache__",
+        ".pytest_cache", ".gradle", ".dart_tool", "vendor",
     ]
-    /// Hidden folders that can be junk. Every other hidden folder (.git,
-    /// .cache, ...) is skipped during the walk.
-    private static let hiddenJunkNames: Set<String> = [".next", ".venv"]
 
-    /// Share of the progress bar spent walking the folder tree; measuring the
-    /// matched folders fills the rest.
+    private static let hiddenJunkNames: Set<String> = [
+        ".next", ".nuxt", ".turbo", ".parcel-cache", ".venv", ".build",
+        ".pytest_cache", ".gradle", ".dart_tool",
+    ]
+
+    public static func defaultProjectRoots(
+        home: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> [URL] {
+        let candidates = [
+            "Projects",
+            "Code",
+            "Developer",
+            "Development",
+            "workspace",
+            "github",
+            "repos",
+            "src",
+            "Documents/projects",
+            "Documents/Projects",
+            "Desktop/Projects",
+        ]
+        var seen: Set<String> = []
+        var result: [URL] = []
+        let fm = FileManager.default
+        for rel in candidates {
+            let url = home.appending(path: rel, directoryHint: .isDirectory)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: url.path(percentEncoded: false), isDirectory: &isDir),
+                  isDir.boolValue,
+                  isAllowedRoot(url) else { continue }
+            let norm = normalized(url.resolvingSymlinksInPath()).lowercased()
+            if seen.insert(norm).inserted {
+                result.append(url)
+            }
+        }
+        return result
+    }
+
     static let walkShare = 0.4
 
-    /// `onProgress` gets 0...1: `walkShare` once the walk is done, then one
-    /// step per matched folder as its size is measured.
     public func scan(
         root: URL,
         maxDepth: Int = 6,
         onProgress: (@Sendable (Double) -> Void)? = nil
     ) -> [ProjectJunkItem] {
-        guard Self.isAllowedRoot(root) else { return [] }
-        let nodes = collectNodes(root: root, maxDepth: maxDepth)
-        let matches = ProjectJunkFinder.find(nodes: nodes)
+        scan(roots: [root], maxDepth: maxDepth, onProgress: onProgress)
+    }
+
+    public func scan(
+        roots: [URL],
+        maxDepth: Int = 6,
+        onProgress: (@Sendable (Double) -> Void)? = nil
+    ) -> [ProjectJunkItem] {
+        let allowedRoots = roots.filter { Self.isAllowedRoot($0) }
+        guard !allowedRoots.isEmpty else { return [] }
+
+        var allNodes: [ProjectTreeNode] = []
+        for root in allowedRoots {
+            if Task.isCancelled { return [] }
+            allNodes.append(contentsOf: collectNodes(root: root, maxDepth: maxDepth))
+        }
+        let matches = ProjectJunkFinder.find(nodes: allNodes)
         onProgress?(Self.walkShare)
-        // Size only the matches, never every folder on the way down.
+
         var items: [ProjectJunkItem] = []
         for (index, item) in matches.enumerated() {
             if Task.isCancelled { return [] }
@@ -45,8 +89,23 @@ public struct ProjectJunkScanner: Sendable {
         return items
     }
 
-    /// Refuses roots where a "build" or "target" folder belongs to the OS or
-    /// to apps rather than to the user's own projects.
+    public func gitStatuses(for items: [ProjectJunkItem]) async -> [String: GitRepoStatus] {
+        let uniqueProjects = Array(Set(items.map(\.projectPath)))
+        var statuses: [String: GitRepoStatus] = [:]
+        for projectPath in uniqueProjects {
+            if Task.isCancelled { break }
+            let outcome = await BoundedProcess.run(
+                "/usr/bin/git",
+                ["-C", projectPath, "status", "--porcelain=v1", "-b"],
+                timeout: .seconds(2)
+            )
+            if outcome.succeeded {
+                statuses[projectPath] = GitRepoStatus.parse(outcome.stdoutText)
+            }
+        }
+        return statuses
+    }
+
     static func isAllowedRoot(_ root: URL) -> Bool {
         let path = normalized(root.resolvingSymlinksInPath())
         if path == "/" { return false }
@@ -56,8 +115,6 @@ public struct ProjectJunkScanner: Sendable {
         return !forbidden.contains { path == $0 || path.hasPrefix($0 + "/") }
     }
 
-    /// Paths without a trailing slash, so a child's `deletingLastPathComponent`
-    /// matches its parent's key. Directory URLs from the enumerator end in "/".
     static func normalized(_ url: URL) -> String {
         var path = url.standardizedFileURL.path(percentEncoded: false)
         while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
@@ -68,11 +125,12 @@ public struct ProjectJunkScanner: Sendable {
         guard !items.isEmpty else { return [] }
         let files = items.map { item in
             FileItem(
-                url: URL(filePath: item.path),
+                url: URL(filePath: item.path, directoryHint: .isDirectory),
                 name: (item.path as NSString).lastPathComponent,
                 size: item.bytes,
                 allocatedSize: item.bytes,
-                isDirectory: true
+                isDirectory: true,
+                modificationDate: item.projectModified
             )
         }
         return [
@@ -94,15 +152,14 @@ public struct ProjectJunkScanner: Sendable {
         ) else { return [] }
 
         var nodes: [ProjectTreeNode] = []
-        // Include the root itself so project markers at the top level work.
+
         nodes.append(node(path: Self.normalized(root), url: root, fm: fm))
 
         while let url = enumerator.nextObject() as? URL {
             if Task.isCancelled { return [] }
             let name = url.lastPathComponent
             let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            // Symlinks are never followed or listed: trashing one would only
-            // move the link, and following one could leave the chosen folder.
+
             guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
             let path = Self.normalized(url)
             if path == home + "/Library" || (name.hasPrefix(".") && !Self.hiddenJunkNames.contains(name)) {
@@ -133,8 +190,6 @@ public struct ProjectJunkScanner: Sendable {
         )
     }
 
-    /// Reads a folder's .gitignore, capped so a huge generated file can't
-    /// stall the scan.
     private static func gitignoreLines(in directory: String) -> [String] {
         let path = (directory as NSString).appendingPathComponent(".gitignore")
         guard let handle = FileHandle(forReadingAtPath: path) else { return [] }
@@ -144,7 +199,6 @@ public struct ProjectJunkScanner: Sendable {
         return text.components(separatedBy: .newlines)
     }
 
-    /// Counts hidden files too: pnpm keeps the whole store in node_modules/.pnpm.
     static func directoryBytes(_ url: URL) -> UInt64 {
         guard let enumerator = FileManager.default.enumerator(
             at: url,

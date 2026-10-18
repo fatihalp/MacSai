@@ -1,11 +1,5 @@
 import Foundation
 
-// MARK: - Simple data-only categories
-//
-// Each of these declares *what* to scan via a `[ScanTarget]`. They contain no
-// system interaction and are exhaustively testable from MacCleanKit tests.
-// The actual scanning happens in `TargetedScanner` (in the MacClean target).
-
 public struct UserCacheCategory: JunkCategory {
     public init() {}
     public let scanCategory = ScanCategory.userCaches
@@ -15,7 +9,7 @@ public struct UserCacheCategory: JunkCategory {
                 path: MCConstants.userCaches,
                 recursive: true,
                 excludePatterns: ["com.spotify.client", "org.gradle"],
-                // Listed (opt-in) under Package Manager Caches instead.
+
                 excludedPaths: [MCConstants.homebrewCache, MCConstants.pipCache]
             ),
         ]
@@ -86,7 +80,7 @@ public struct DocumentVersionsCategory: JunkCategory {
             ScanTarget(
                 path: MCConstants.documentVersions,
                 recursive: true,
-                minAge: 14400 // older than 4 hours
+                minAge: 14400
             ),
         ]
     }
@@ -114,7 +108,7 @@ public struct IOSDeviceBackupsCategory: JunkCategory {
             ScanTarget(
                 path: MCConstants.mobileBackups,
                 recursive: false,
-                minAge: 30 * 24 * 3600 // older than 30 days
+                minAge: 30 * 24 * 3600
             ),
         ]
     }
@@ -130,7 +124,7 @@ public struct OldUpdatesCategory: JunkCategory {
                 recursive: true,
                 maxDepth: 3,
                 fileExtensions: ["pkg", "mpkg"],
-                minAge: 7 * 24 * 3600 // older than 7 days
+                minAge: 7 * 24 * 3600
             ),
         ]
     }
@@ -145,7 +139,7 @@ public struct UnusedDiskImagesCategory: JunkCategory {
                 path: MCConstants.downloads,
                 recursive: false,
                 fileExtensions: ["dmg", "iso", "sparseimage"],
-                minAge: 7 * 24 * 3600 // older than 7 days
+                minAge: 7 * 24 * 3600
             ),
         ]
     }

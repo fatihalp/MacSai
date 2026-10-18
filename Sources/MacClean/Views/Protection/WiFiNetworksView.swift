@@ -15,14 +15,10 @@ struct WiFiNetworksView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("已保存的 Wi-Fi", "Saved Wi-Fi", "Сохранённые сети Wi-Fi"))
+                    Text("Saved Wi-Fi")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr(
-                        "移除不再使用的已保存网络，减少被追踪的可能。需要管理员权限。",
-                        "Remove saved networks you no longer use to shrink your tracking surface. Administrator access is required.",
-                        "Удаляйте сохранённые сети, которыми больше не пользуетесь — так меньше данных для отслеживания. Нужны права администратора."
-                    ))
+                    Text("Remove saved networks you no longer use to shrink your tracking surface. Administrator access is required.")
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
                 }
@@ -30,12 +26,12 @@ struct WiFiNetworksView: View {
                 Button {
                     Task { await reload() }
                 } label: {
-                    Label(L10n.tr("刷新", "Refresh", "Обновить"), systemImage: "arrow.clockwise")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(isLoading || isForgetting)
-                .help(L10n.tr("重新读取已保存的网络", "Reload saved networks", "Заново прочитать сохранённые сети"))
+                .help("Reload saved networks")
 
-                Button(L10n.tr("忘记所选", "Forget Selected", "Забыть выбранные")) {
+                Button("Forget Selected") {
                     pendingForget = selectedNetworks
                 }
                 .buttonStyle(.borderedProminent)
@@ -52,7 +48,7 @@ struct WiFiNetworksView: View {
                         ProgressView()
                             .controlSize(.large)
                             .tint(.primary)
-                        Text(L10n.tr("正在读取已保存的网络…", "Reading saved networks…", "Чтение сохранённых сетей…"))
+                        Text("Reading saved networks…")
                             .font(.system(size: 13))
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
@@ -70,7 +66,7 @@ struct WiFiNetworksView: View {
                 } else if networks.isEmpty {
                     VStack {
                         Spacer()
-                        Text(L10n.tr("没有已保存的 Wi-Fi 网络", "No saved Wi-Fi networks", "Нет сохранённых сетей Wi-Fi"))
+                        Text("No saved Wi-Fi networks")
                             .foregroundStyle(.primary.opacity(0.4))
                             .font(.system(size: 13))
                         Spacer()
@@ -106,41 +102,38 @@ struct WiFiNetworksView: View {
                     .listStyle(.inset)
                 }
             }
-            .background {
-                if removeBackgroundColors { Color.clear }
-                else { Rectangle().fill(.ultraThinMaterial) }
-            }
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
         .task { await reload() }
         .respondsToModuleShortcuts(onScan: { Task { await reload() } }, canScan: !isLoading && !isForgetting)
         .alert(
-            L10n.tr("忘记所选网络？", "Forget selected networks?", "Забыть выбранные сети?"),
+            String(localized: "Forget selected networks?"),
             isPresented: Binding(
                 get: { pendingForget != nil },
                 set: { if !$0 { pendingForget = nil } }
             ),
             presenting: pendingForget
         ) { nets in
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) { pendingForget = nil }
-            Button(L10n.tr("忘记", "Forget", "Забыть"), role: .destructive) {
+            Button("Cancel", role: .cancel) { pendingForget = nil }
+            Button("Forget", role: .destructive) {
                 let captured = nets
                 pendingForget = nil
                 Task { await forget(captured) }
             }
         } message: { nets in
-            Text(L10n.tr(
-                "将从这台 Mac 移除 \(nets.count) 个已保存的 Wi-Fi 网络。macOS 会要求管理员权限。正在使用的网络被移除后可能断开连接。",
-                "\(nets.count) saved Wi-Fi \(nets.count == 1 ? "network" : "networks") will be removed from this Mac. macOS will ask for administrator access. Forgetting the network you are on may disconnect you.",
-                "С этого Mac будет удалено \(nets.count) \(L10n.russianPlural(nets.count, one: "сохранённая сеть Wi-Fi", few: "сохранённые сети Wi-Fi", many: "сохранённых сетей Wi-Fi")). macOS запросит права администратора. Если забыть текущую сеть, соединение может оборваться."
-            ))
+            Text("\(nets.count) saved Wi-Fi \(nets.count == 1 ? "network" : "networks") will be removed from this Mac. macOS will ask for administrator access. Forgetting the network you are on may disconnect you.")
         }
-        .alert(L10n.tr("已保存的 Wi-Fi", "Saved Wi-Fi", "Сохранённые сети Wi-Fi"),
+        .alert("Saved Wi-Fi",
                isPresented: Binding(get: { errorMessage != nil && !networks.isEmpty },
                                     set: { if !$0 { errorMessage = nil } })) {
-            Button(L10n.tr("好", "OK"), role: .cancel) { errorMessage = nil }
+            Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }

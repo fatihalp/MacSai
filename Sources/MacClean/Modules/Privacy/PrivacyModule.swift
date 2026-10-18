@@ -3,7 +3,7 @@ import MacCleanKit
 
 public struct PrivacyModule: ScanModule {
     public let id = "privacy"
-    public var name: String { L10n.tr("隐私清理", "Privacy", "Конфиденциальность") }
+    public var name: String { String(localized: "Privacy") }
     public let category = ModuleCategory.protection
 
     public enum TimeFilter: Sendable {
@@ -54,7 +54,7 @@ public struct PrivacyModule: ScanModule {
 
     private func scanBrowserData() async -> [FileItem] {
         let targets = [
-            // Safari
+
             ScanTarget(
                 path: MCConstants.safariCache,
                 recursive: true,
@@ -66,7 +66,7 @@ public struct PrivacyModule: ScanModule {
                 fileExtensions: ["db", "plist"],
                 maxAge: timeFilter.maxAge
             ),
-            // Chrome
+
             ScanTarget(
                 path: MCConstants.chromeCache,
                 recursive: true,
@@ -82,7 +82,7 @@ public struct PrivacyModule: ScanModule {
                 recursive: true,
                 maxAge: timeFilter.maxAge
             ),
-            // Firefox
+
             ScanTarget(
                 path: MCConstants.firefoxCache,
                 recursive: true,
@@ -118,14 +118,14 @@ public struct PrivacyModule: ScanModule {
 
     private func scanSystemPrivacy() async -> [FileItem] {
         let targets = [
-            // Recent items database
+
             ScanTarget(
                 path: MCConstants.userLibrary.appending(path: "Application Support/com.apple.sharedfilelist"),
                 recursive: true,
                 fileExtensions: ["sfl2", "sfl3"],
                 maxAge: timeFilter.maxAge
             ),
-            // Recent documents
+
             ScanTarget(
                 path: MCConstants.userLibrary.appending(path: "RecentServers"),
                 recursive: false,

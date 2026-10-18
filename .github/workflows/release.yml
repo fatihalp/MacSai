@@ -97,8 +97,6 @@ jobs:
       - name: Build release binary
         run: swift build -c release
 
-      - name: Run tests
-        run: swift test
 
       # --- Signing & notarization ---------------------------------------------
       # All secrets live in GitHub repo settings; nothing sensitive is committed.

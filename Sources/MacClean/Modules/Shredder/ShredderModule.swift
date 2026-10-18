@@ -3,7 +3,7 @@ import MacCleanKit
 
 public struct ShredderModule: ScanModule {
     public let id = "shredder"
-    public var name: String { L10n.tr("文件粉碎", "Shredder", "Уничтожение файлов") }
+    public var name: String { String(localized: "Shredder") }
     public let category = ModuleCategory.files
     public let includedInSmartScan = false
 
@@ -14,13 +14,11 @@ public struct ShredderModule: ScanModule {
     }
 }
 
-// MARK: - Secure File Eraser
-
 public actor SecureEraser {
     public enum EraseMode: Sendable {
-        case standard   // Move to trash (recoverable)
-        case permanent  // Remove immediately (TRIM handles SSD cleanup)
-        case secure     // Overwrite then remove (best effort on SSD)
+        case standard
+        case permanent
+        case secure
     }
 
     private enum EraseError: LocalizedError {
@@ -29,10 +27,7 @@ public actor SecureEraser {
         var errorDescription: String? {
             switch self {
             case .secureEraseDirectory(let path):
-                L10n.tr(
-                    "安全擦除不能用于文件夹：\(path)",
-                    "Secure erase cannot be used on directories: \(path)",
-                    "Безопасное стирание нельзя применять к папкам: \(path)")
+                "Secure erase cannot be used on directories: \(path)"
             }
         }
     }
@@ -48,8 +43,7 @@ public actor SecureEraser {
     public init() {}
 
     public func erase(urls: [URL], mode: EraseMode) async -> EraseResult {
-        // Preserve the batch-size safety cap, but let the per-item validation
-        // below identify and skip individual unsafe paths.
+
         do {
             try safetyGuard.validateDeletion(paths: urls)
         } catch let error as SafetyGuard.SafetyError {
@@ -61,8 +55,7 @@ public actor SecureEraser {
                 )
             }
         } catch {
-            // validateDeletion currently only throws SafetyError. If that
-            // changes, per-item validation still keeps the batch fail-safe.
+
         }
 
         var erasedCount = 0
@@ -105,31 +98,22 @@ public actor SecureEraser {
     }
 
     private func secureOverwrite(_ url: URL) throws {
-        // On SSDs, TRIM handles physical block zeroing automatically after deletion.
-        // This overwrite is best-effort: it writes over the logical file content,
-        // but the SSD controller may redirect the write to a new physical block.
-        // For true security, recommend FileVault (full-disk encryption).
+
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey, .isSymbolicLinkKey])
-        // Refuse directories: returning here would let the caller recursively
-        // remove their contents without overwriting any of the files.
+
         guard values.isDirectory != true else {
             throw EraseError.secureEraseDirectory(url.path(percentEncoded: false))
         }
-        // Never follow a symlink: opening it for writing would zero the TARGET
-        // file's contents, not the link. Refuse rather than corrupt the target.
+
         guard values.isSymbolicLink != true else {
             throw SafetyGuard.SafetyError.symlinkTarget(url.path(percentEncoded: false))
         }
         let size = values.fileSize ?? 0
         guard size > 0 else { return }
 
-        // Propagate an open failure instead of silently returning: a file we
-        // couldn't overwrite must NOT be deleted and reported as a successful
-        // secure erase (e.g. a read-only file in a writable directory).
         let handle = try FileHandle(forWritingTo: url)
         defer { try? handle.close() }
 
-        // Single pass of zeros
         let bufferSize = min(size, 65536)
         let zeros = Data(count: bufferSize)
         var remaining = size

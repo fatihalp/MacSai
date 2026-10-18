@@ -1,11 +1,10 @@
 import Foundation
 
-/// Mach-O architecture slice names that lipo emits.
 public enum BinaryArch: String, CaseIterable, Sendable, Hashable {
     case x86_64
     case arm64
-    case arm64e   // Apple-internal PAC variant of arm64
-    case i386     // 32-bit Intel (legacy)
+    case arm64e
+    case i386
 
     public init?(lipoName: String) {
         self.init(rawValue: lipoName)
@@ -21,9 +20,6 @@ public struct BundleHostInfo: Sendable, Equatable {
         self.hostArch = hostArch
     }
 
-    /// The arch this build of Mac Sai is running on. Compile-time check —
-    /// Rosetta-translated x86_64 builds would report x86_64 here, which is
-    /// the right answer for "what code is loaded right now."
     public static var current: BundleHostInfo {
         #if arch(arm64)
         BundleHostInfo(hostArch: .arm64)
@@ -66,18 +62,9 @@ public enum ThinDecision: Equatable, Sendable {
     }
 }
 
-/// Decides whether an app bundle is safe to thin and what to drop.
-///
-/// Pure logic — no FileManager / Process / sysctl. The system layer in
-/// MacClean is responsible for gathering the `AppBundleInfo` (walking
-/// the bundle, running `lipo -info`, reading the receipt) and then
-/// asking the policy. That separation lets us test the policy without
-/// touching disk.
 public struct UniversalBinariesPolicy: Sendable {
     public init() {}
 
-    /// Skip order matters — most-specific first so the user sees the most
-    /// relevant reason in the UI.
     public func decideThinning(
         for bundle: AppBundleInfo,
         host: BundleHostInfo
@@ -107,10 +94,6 @@ public struct UniversalBinariesPolicy: Sendable {
         return .thin(targetArch: host.hostArch, dropping: dropping)
     }
 
-    /// Rough proportional estimate. Underestimates slightly because Mach-O
-    /// headers are duplicated per slice, so the universal file is somewhat
-    /// larger than the sum of single-arch sizes. Good enough for "you'll
-    /// save about X MB" UI.
     public static func estimatedSavings(
         originalSize: UInt64,
         originalArchCount: Int,

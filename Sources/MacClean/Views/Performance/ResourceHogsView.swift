@@ -2,8 +2,6 @@ import SwiftUI
 import AppKit
 import MacCleanKit
 
-/// Optimization → Resource Hogs (issue #51). Lists top CPU/memory apps from
-/// `ProcessStatsCollector` and offers a confirmed Force Quit.
 struct ResourceHogsView: View {
     @State private var rows: [ResourceHogRow] = []
     @State private var sortBy: ResourceHogsPolicy.SortKey = .cpu
@@ -20,9 +18,9 @@ struct ResourceHogsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker(L10n.tr("排序", "Sort", "Сортировка"), selection: $sortBy) {
-                    Text(L10n.tr("CPU", "CPU", "CPU")).tag(ResourceHogsPolicy.SortKey.cpu)
-                    Text(L10n.tr("内存", "Memory", "Память")).tag(ResourceHogsPolicy.SortKey.memory)
+                Picker("Sort", selection: $sortBy) {
+                    Text("CPU").tag(ResourceHogsPolicy.SortKey.cpu)
+                    Text("Memory").tag(ResourceHogsPolicy.SortKey.memory)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -30,7 +28,7 @@ struct ResourceHogsView: View {
 
                 Spacer()
 
-                Text(L10n.tr("强制退出前会要求确认", "Force Quit asks for confirmation first", "Перед принудительным завершением будет запрос"))
+                Text("Force Quit asks for confirmation first")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -45,7 +43,7 @@ struct ResourceHogsView: View {
                         ProgressView()
                             .controlSize(.large)
                             .tint(.primary)
-                        Text(L10n.tr("正在读取进程…", "Reading processes…", "Чтение процессов…"))
+                        Text("Reading processes…")
                             .font(.system(size: 13))
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
@@ -56,7 +54,7 @@ struct ResourceHogsView: View {
                         Image(systemName: "gauge.with.dots.needle.67percent")
                             .font(.system(size: 32))
                             .foregroundStyle(.tertiary)
-                        Text(L10n.tr("没有可显示的应用", "No apps to show", "Нет приложений для отображения"))
+                        Text("No apps to show")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -77,7 +75,7 @@ struct ResourceHogsView: View {
         }
         .task {
             await refresh()
-            // CPU% needs a second sample; one beat later fills real numbers.
+
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             await refresh()
             while !Task.isCancelled {
@@ -89,25 +87,17 @@ struct ResourceHogsView: View {
             Task { await refresh() }
         }
         .alert(
-            L10n.tr(
-                "强制退出 \(pendingQuit?.snapshot.name ?? "")？",
-                "Force Quit \(pendingQuit?.snapshot.name ?? "")?",
-                "Принудительно завершить \(pendingQuit?.snapshot.name ?? "")?"
-            ),
+            "Force Quit \(pendingQuit?.snapshot.name ?? "")?",
             isPresented: $showQuitConfirm
         ) {
-            Button(L10n.tr("取消", "Cancel", "Отмена"), role: .cancel) {
+            Button("Cancel", role: .cancel) {
                 pendingQuit = nil
             }
-            Button(L10n.tr("强制退出", "Force Quit", "Завершить"), role: .destructive) {
+            Button("Force Quit", role: .destructive) {
                 quitPending()
             }
         } message: {
-            Text(L10n.tr(
-                "未保存的工作可能会丢失。",
-                "Unsaved work may be lost.",
-                "Несохранённая работа может быть потеряна."
-            ))
+            Text("Unsaved work may be lost.")
         }
         .alert(statusMessage ?? "", isPresented: $showStatus) {
             Button("OK") { showStatus = false }
@@ -134,26 +124,15 @@ struct ResourceHogsView: View {
         guard let row = pendingQuit else { return }
         pendingQuit = nil
         guard row.canQuit else {
-            statusMessage = L10n.tr(
-                "无法退出受保护的进程。",
-                "That process is protected and cannot be quit.",
-                "Этот процесс защищён и его нельзя завершить."
-            )
+            statusMessage = String(localized: "That process is protected and cannot be quit.")
             showStatus = true
             return
         }
-        // Guard against PID reuse: the row was captured from an earlier
-        // snapshot. Re-resolve the live process and confirm it is still the
-        // same app (and still quittable) before terminating, so a recycled PID
-        // can never take down a different app.
+
         guard let live = NSRunningApplication(processIdentifier: row.snapshot.pid),
               live.bundleIdentifier == row.snapshot.bundleIdentifier,
               ResourceHogsPolicy.canQuit(bundleIdentifier: live.bundleIdentifier) else {
-            statusMessage = L10n.tr(
-                "该进程已不再运行。",
-                "That process is no longer running.",
-                "Этот процесс больше не запущен."
-            )
+            statusMessage = String(localized: "That process is no longer running.")
             showStatus = true
             return
         }
@@ -192,7 +171,7 @@ private struct ResourceHogRowView: View {
             .frame(minWidth: 72, alignment: .trailing)
 
             if row.canQuit {
-                Button(L10n.tr("退出", "Quit", "Завершить"), action: onQuit)
+                Button("Quit", action: onQuit)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .tint(.red)
@@ -201,7 +180,7 @@ private struct ResourceHogRowView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                     .frame(width: 52)
-                    .help(L10n.tr("受保护，无法退出", "Protected — cannot quit", "Защищён — завершить нельзя"))
+                    .help("Protected — cannot quit")
             }
         }
         .padding(.vertical, 2)

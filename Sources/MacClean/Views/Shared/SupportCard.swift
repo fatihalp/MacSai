@@ -1,23 +1,14 @@
 import SwiftUI
 import MacCleanKit
 
-/// The one place Mac Sai asks for support: an inline, dismissible card on the
-/// post-clean screen, right after the app has visibly helped. It is never a
-/// modal and never blocks anything. The parent shows it only when
-/// `SupportAskLedger.shouldAsk(for:)` says so (a big clean, not the first one,
-/// at most every 60 days, never after the user opts out or follows the link);
-/// this view only renders and animates it.
 struct SupportCard: View {
     private enum Phase { case hidden, asking, thanked }
 
-    // Starts as a real view, not EmptyView: SwiftUI never fires onAppear on
-    // a view that renders nothing, which kept the card from ever showing.
     @State private var phase: Phase = .asking
     @State private var revealed = false
     @State private var cupBounce = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Buy Me a Coffee's brand yellow, with dark ink so it reads in both modes.
     private static let coffee = Color(red: 1.0, green: 0.867, blue: 0.0)
     private static let coffeeInk = Color(red: 0.11, green: 0.09, blue: 0.05)
 
@@ -38,8 +29,6 @@ struct SupportCard: View {
         }
     }
 
-    // MARK: - Ask
-
     private var askCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
@@ -53,22 +42,17 @@ struct SupportCard: View {
                         .symbolEffect(.bounce, value: cupBounce)
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(L10n.tr("这次清理，你没花一分钱。", "That cleanup cost you nothing.", "Эта очистка не стоила вам ни копейки."))
+                    Text("That cleanup cost you nothing.")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
-                    Text(L10n.tr(
-                        "没有订阅，没有广告，没有追踪。Mac Sai 是我和几位志愿者在业余时间做的。如果它帮你省下了买清理软件的钱，请我喝杯咖啡，让它对所有人继续免费。",
-                        "No subscription, no ads, no tracking. I build Mac Sai on nights and weekends with a few volunteers. If it saved you from paying for a cleaner, a coffee keeps it free for everyone.",
-                        "Без подписки, рекламы и слежки. Я делаю Mac Sai по вечерам и выходным вместе с несколькими добровольцами. Если он избавил вас от платной программы для очистки, чашка кофе поможет ему оставаться бесплатным для всех."
-                    ))
+                    Text("No subscription, no ads, no tracking. I build Mac Sai on nights and weekends with a few volunteers. If it saved you from paying for a cleaner, a coffee keeps it free for everyone.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(.primary.opacity(0.68))
                     .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(4)
                 }
             }
 
-            // Long translations (Russian) push "Don't ask again" onto its own line.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 14) {
                     primaryActions
@@ -93,12 +77,12 @@ struct SupportCard: View {
 
     @ViewBuilder private var primaryActions: some View {
         Button(action: support) {
-            Label(L10n.tr("请我喝杯咖啡", "Buy me a coffee", "Угостить кофе"), systemImage: "heart.fill")
+            Label("Buy me a coffee", systemImage: "heart.fill")
         }
         .buttonStyle(CoffeeButtonStyle(fill: Self.coffee, ink: Self.coffeeInk))
         .help(MCConstants.supportURL.absoluteString)
 
-        Button(L10n.tr("以后再说", "Maybe later", "Может, позже"), action: dismiss)
+        Button("Maybe later", action: dismiss)
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.primary.opacity(0.6))
@@ -106,7 +90,7 @@ struct SupportCard: View {
     }
 
     private var optOutButton: some View {
-        Button(L10n.tr("不再提示", "Don't ask again", "Больше не спрашивать"), action: optOut)
+        Button("Don't ask again", action: optOut)
             .buttonStyle(.plain)
             .font(.system(size: 11))
             .foregroundStyle(.primary.opacity(0.5))
@@ -118,17 +102,14 @@ struct SupportCard: View {
             Image(systemName: "heart.fill")
                 .foregroundStyle(.pink)
                 .symbolEffect(.bounce, value: cupBounce)
-            Text(L10n.tr("谢谢你。正因为有你，它才能一直免费。", "Thank you. You're the reason it stays free.", "Спасибо. Благодаря вам он остаётся бесплатным."))
+            Text("Thank you. You're the reason it stays free.")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.8))
         }
     }
 
-    // MARK: - Actions
-
     private func reveal() {
-        // Let the checkmark and the freed size land first; the card follows.
-        // Its space is reserved from the start so the Done button never jumps.
+
         guard !revealed else { return }
         if reduceMotion {
             revealed = true
@@ -168,7 +149,6 @@ private struct CoffeeButtonStyle: ButtonStyle {
     }
 }
 
-/// Separate view so the hover state lives on a real view, not the style.
 private struct CoffeeButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let fill: Color

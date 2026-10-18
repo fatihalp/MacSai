@@ -52,18 +52,10 @@ public actor FileTreeScanner {
             return rootNode
         }
 
-        // Normalize: strip any trailing slash so root and child-derived
-        // parent paths line up. `URL.deletingLastPathComponent()` on a file
-        // URL returns a directory URL whose `path(percentEncoded:)` ends
-        // in "/" — that mismatched the root key unconditionally and
-        // silently produced an empty tree.
         func key(_ url: URL) -> String {
             var p = url.path(percentEncoded: false)
             if p.hasSuffix("/") && p.count > 1 { p = String(p.dropLast()) }
-            // Canonicalize macOS firmlinks as a pure string op: enumerator
-            // child URLs resolve through /private/var even when the root is
-            // the /var symlink (temp dir, firmlinked volumes), so map
-            // /private/{var,tmp,etc} back to /{var,tmp,etc} on both sides.
+
             for firmlink in ["/private/var", "/private/tmp", "/private/etc"] {
                 if p == firmlink || p.hasPrefix(firmlink + "/") {
                     return String(p.dropFirst("/private".count))
@@ -111,13 +103,6 @@ public actor FileTreeScanner {
         return rootNode
     }
 
-    /// Sizes only the immediate children of `root`, aggregating each directory's
-    /// whole subtree into a single running total instead of allocating a
-    /// `FileNode` per file. Space Lens renders only the top-level children, so
-    /// this is all it needs, and it keeps memory flat on huge folders where the
-    /// per-file tree in `scanWithSizeAggregation` would swap and appear to hang
-    /// (issue #184). `onProgress` reports the number of items scanned so far so
-    /// the UI can show real movement instead of a fixed 50%.
     public func topLevelSizes(
         root: URL,
         onProgress: (@Sendable (Int) -> Void)? = nil
@@ -149,9 +134,7 @@ public actor FileTreeScanner {
                 includingPropertiesForKeys: [.fileAllocatedSizeKey],
                 options: [.skipsPackageDescendants]
             ) {
-                // Accumulate allocated size only. Reading `fileAllocatedSize` is
-                // metadata, so dataless iCloud files are counted at their local
-                // footprint without triggering a download.
+
                 while let obj = enumerator.nextObject() {
                     if Task.isCancelled { break }
                     scanned += 1

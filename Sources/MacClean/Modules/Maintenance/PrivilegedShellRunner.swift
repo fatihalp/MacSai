@@ -2,7 +2,6 @@ import AppKit
 import Foundation
 import MacCleanKit
 
-/// Result of one privileged `do shell script` invocation.
 struct PrivilegedShellResult: Sendable, Equatable {
     let success: Bool
     let output: String
@@ -18,18 +17,10 @@ struct PrivilegedShellResult: Sendable, Equatable {
     }
 }
 
-/// Runs a pre-quoted shell command line with administrator privileges.
 protocol PrivilegedShellRunning: Sendable {
     func run(commandLine: String) async -> PrivilegedShellResult
 }
 
-/// In-process AppleScript runner. macOS caches the admin password for about
-/// five minutes **per process**, so sequential Maintenance tasks share one
-/// prompt instead of asking again for every task (issue #143).
-///
-/// Calls are serialized on a dedicated queue: `NSAppleScript` is not thread
-/// safe, and `executeAndReturnError` can block for minutes (`periodic`) so
-/// it must not sit on the Swift concurrency thread pool.
 struct AppleScriptPrivilegedRunner: PrivilegedShellRunning {
     private static let queue = DispatchQueue(label: "sai.maintenance.privileged-applescript")
 

@@ -27,9 +27,7 @@ public actor ConnectedDevicesCollector {
 
     public func collect() async -> ConnectedDevices {
         let volumes = enumerateExternalVolumes()
-        // `NSScreen.screens` includes the built-in display, so external
-        // count = total - 1. Read on @MainActor since NSScreen is main-
-        // only; the value is small and the hop is cheap.
+
         let displays = await MainActor.run { max(0, NSScreen.screens.count - 1) }
         return ConnectedDevices(externalVolumes: volumes, externalDisplays: displays)
     }
@@ -52,9 +50,7 @@ public actor ConnectedDevicesCollector {
             guard let values = try? url.resourceValues(forKeys: resourceKeySet) else {
                 return nil
             }
-            // "External" = removable (USB stick) OR not-internal
-            // (network-mounted, externally-attached). The default
-            // root volume is internal & non-removable, so we drop it.
+
             let isRemovable = values.volumeIsRemovable ?? false
             let isInternal = values.volumeIsInternal ?? true
             guard isRemovable || !isInternal else { return nil }
