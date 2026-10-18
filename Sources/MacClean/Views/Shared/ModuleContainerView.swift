@@ -337,9 +337,6 @@ struct ModuleContainerView: View {
                         doneDisabled: review.selectedCount == 0,
                         onDone: requestClean
                     )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 20)
                     .onChange(of: review.revision) { _, _ in
                         selectedItems = review.data.selectedURLs(flags: review.snapshot())
                     }

@@ -2,15 +2,6 @@ import SwiftUI
 import AppKit
 import MacCleanKit
 
-enum ReviewPalette {
-    static let accent = Color(nsColor: .systemBlue)
-    static let selection = Color(nsColor: .systemBlue).opacity(0.12)
-    static let moduleSelection = Color(nsColor: .systemBlue).opacity(0.12)
-    static let panel = Color.white
-    static let middlePane = Color(white: 0.985)
-    static let sidebar = Color(white: 0.965)
-}
-
 struct ReviewBrowserView: View {
     let data: ReviewData
     let selection: ReviewSelection
@@ -24,6 +15,8 @@ struct ReviewBrowserView: View {
     @State private var drillPath: [ReviewNode] = []
     @State private var childCache: [String: [ReviewNode]] = [:]
     @State private var loadingNodeID: String?
+    @State private var searchText: String = ""
+    @State private var onlyLargeFiles: Bool = false
 
     private static let maxRows = 1_000
 
@@ -44,36 +37,30 @@ struct ReviewBrowserView: View {
         self.onClean = onClean
         let section = data.sections.first { $0.id == initialSectionID } ?? data.sections.first
         _sectionID = State(initialValue: section?.id ?? "")
-        _categoryID = State(initialValue: section?.categoryIDs.first)
+        let initialCat = section?.categoryIDs.first(where: { data.categories[$0].size > 0 }) ?? section?.categoryIDs.first ?? data.categories.first?.id
+        _categoryID = State(initialValue: initialCat)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                if data.sections.count > 1 {
-                    sectionList
-                        .frame(width: 215)
-                        .background(ReviewPalette.sidebar)
-                    Divider()
-                }
-                categoryList
-                    .frame(width: 280)
-                    .background(ReviewPalette.middlePane)
+                categoriesMasterList
+                    .frame(width: 320)
+                    .background(Color(white: 0.985))
+
                 Divider()
+
                 detailPane
-                    .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
-                    .background(ReviewPalette.panel)
+                    .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
             }
+
             Divider()
+
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ReviewPalette.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
-        )
+        .background(Color.white)
     }
 
     private var currentSection: ReviewSection? {
@@ -84,136 +71,96 @@ struct ReviewBrowserView: View {
         categoryID.map { data.categories[$0] }
     }
 
-    private var sectionList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text("Modules")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
+    private var categoriesMasterList: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Text("Categories")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                HStack(spacing: 4) {
                     Button(String(localized: "All")) {
                         selection.applyToAll(.all)
                     }
-                    .buttonStyle(.borderless)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ReviewPalette.accent)
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
 
-                    Text("·").foregroundStyle(.tertiary)
+                    Button(String(localized: "Smart")) {
+                        selection.applyToAll(.smart)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
 
                     Button(String(localized: "None")) {
                         selection.applyToAll(.none)
                     }
-                    .buttonStyle(.borderless)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ReviewPalette.accent)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-
-                ForEach(data.sections) { section in
-                    let isSelected = section.id == sectionID
-                    let sectionSelectedSize = selection.selectedSize(ofSection: section)
-                    HStack(spacing: 8) {
-                        ReviewCheckbox(state: selection.state(ofSection: section)) {
-                            selection.toggleSection(section)
-                        }
-                        Button {
-                            guard section.id != sectionID else { return }
-                            sectionID = section.id
-                            categoryID = section.categoryIDs.first
-                            drillPath = []
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text(section.name)
-                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                                    .foregroundStyle(isSelected ? ReviewPalette.accent : Color.primary)
-                                    .lineLimit(1)
-                                Spacer(minLength: 4)
-                                if sectionSelectedSize > 0 {
-                                    Text(FileSizeFormatter.format(sectionSelectedSize))
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(
-                        isSelected ? ReviewPalette.moduleSelection : .clear,
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    )
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-        }
-    }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
-    private var categoryList: some View {
-        ScrollView {
-            if let section = currentSection {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(section.name)
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Button(String(localized: "All")) {
-                                    selection.apply(.all, toSection: section)
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(ReviewPalette.accent)
+            Divider()
 
-                                Text("·").foregroundStyle(.tertiary)
-
-                                Button(String(localized: "Smart")) {
-                                    selection.apply(.smart, toSection: section)
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(ReviewPalette.accent)
-
-                                Text("·").foregroundStyle(.tertiary)
-
-                                Button(String(localized: "None")) {
-                                    selection.apply(.none, toSection: section)
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(ReviewPalette.accent)
-                            }
-                        }
-                        if let description = ReviewSectionInfo.description(for: section.id) {
-                            Text(description)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
+            ScrollView {
+                if data.sections.count > 1 {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(data.sections) { section in
+                            sectionGroup(section)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-
-                    Divider()
-                        .padding(.bottom, 6)
-
+                    .padding(.vertical, 8)
+                } else {
                     LazyVStack(spacing: 2) {
-                        ForEach(section.categoryIDs, id: \.self) { id in
-                            categoryRow(data.categories[id])
+                        ForEach(data.categories) { category in
+                            categoryRow(category)
                         }
                     }
                     .padding(.horizontal, 8)
-                    .padding(.bottom, 12)
+                    .padding(.vertical, 8)
                 }
             }
+        }
+    }
+
+    private func sectionGroup(_ section: ReviewSection) -> some View {
+        let sectionSize = selection.selectedSize(ofSection: section)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: ReviewSectionInfo.icon(for: section.id))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: .systemBlue))
+
+                Text(section.name)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                if sectionSize > 0 {
+                    Text(FileSizeFormatter.format(sectionSize))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(nsColor: .systemBlue))
+                }
+
+                ReviewCheckbox(state: selection.state(ofSection: section)) {
+                    selection.toggleSection(section)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 4)
+            .padding(.bottom, 2)
+
+            VStack(spacing: 2) {
+                ForEach(section.categoryIDs, id: \.self) { id in
+                    categoryRow(data.categories[id])
+                }
+            }
+            .padding(.horizontal, 8)
         }
     }
 
@@ -235,26 +182,33 @@ struct ReviewBrowserView: View {
                 }
                 categoryID = category.id
                 drillPath = []
+                if let section = data.sections.first(where: { $0.categoryIDs.contains(category.id) }) {
+                    sectionID = section.id
+                }
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ReviewCategoryIcon(category: category.category, isEmpty: isEmpty)
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(category.category.displayName)
-                            .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                            .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isEmpty ? Color.secondary : Color.primary)
                             .lineLimit(1)
+
                         Text(FileSizeFormatter.format(category.size))
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
+
                     Spacer(minLength: 4)
+
                     if selectedSize > 0 {
                         Text(FileSizeFormatter.format(selectedSize))
                             .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color(nsColor: .systemBlue))
                             .padding(.horizontal, 6)
-                            .padding(.vertical, 2.5)
-                            .background(ReviewPalette.accent, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .padding(.vertical, 2)
+                            .background(Color(nsColor: .systemBlue).opacity(0.12), in: Capsule())
                     }
                 }
                 .contentShape(Rectangle())
@@ -262,9 +216,9 @@ struct ReviewBrowserView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(
-            isSelected ? ReviewPalette.selection : .clear,
+            isSelected ? Color(nsColor: .systemBlue).opacity(0.12) : Color.clear,
             in: RoundedRectangle(cornerRadius: 6, style: .continuous)
         )
         .help(category.category.tooltip)
@@ -275,24 +229,81 @@ struct ReviewBrowserView: View {
         if let category = currentCategory {
             VStack(alignment: .leading, spacing: 0) {
                 detailHeader(category)
+
                 Divider()
+
                 if !drillPath.isEmpty {
-                    breadcrumb
+                    breadcrumb(category)
                     Divider()
                 }
+
                 nodeList(category)
             }
         } else {
-            Color.white
+            VStack {
+                Spacer()
+                Text("Select a category to view details")
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
     private func detailHeader(_ category: ReviewCategory) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(category.category.displayName)
-                    .font(.system(size: 16, weight: .semibold))
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(category.category.displayName)
+                            .font(.system(size: 18, weight: .bold))
+
+                        Text(FileSizeFormatter.format(category.size))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(ReviewCategoryInfo.description(for: category.category))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
                 Spacer()
+            }
+
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11))
+
+                    TextField(String(localized: "Search items..."), text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color(white: 0.97), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                )
+                .frame(maxWidth: 220)
+
+                Spacer()
+
                 if !category.groups.isEmpty {
                     HStack(spacing: 6) {
                         Button(String(localized: "Select All")) {
@@ -308,25 +319,27 @@ struct ReviewBrowserView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
 
-                        Button(String(localized: "Deselect All")) {
+                        Button(String(localized: "Deselect")) {
                             selection.apply(.none, toCategory: category.id)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .keyboardShortcut("a", modifiers: [.command, .option])
+
+                        Toggle(isOn: $onlyLargeFiles) {
+                            Text("> 100 MB")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .toggleStyle(.button)
+                        .controlSize(.small)
                     }
                 }
             }
-            Text(ReviewCategoryInfo.description(for: category.category))
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
-    private var breadcrumb: some View {
+    private func breadcrumb(_ category: ReviewCategory) -> some View {
         HStack(spacing: 6) {
             Button {
                 drillPath.removeLast()
@@ -334,10 +347,10 @@ struct ReviewBrowserView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Back")
+                    Text(drillPath.count > 1 ? drillPath[drillPath.count - 2].name : category.category.displayName)
                         .font(.system(size: 12, weight: .medium))
                 }
-                .foregroundStyle(ReviewPalette.accent)
+                .foregroundStyle(Color(nsColor: .systemBlue))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -345,20 +358,26 @@ struct ReviewBrowserView: View {
             Text("›")
                 .foregroundStyle(.tertiary)
 
-            Text(drillPath.map(\.name).joined(separator: "  ›  "))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.head)
+            Text(drillPath.last?.name ?? "")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
+
             Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
-        .background(Color(white: 0.98))
+        .background(Color(white: 0.985))
     }
 
     @ViewBuilder
     private func nodeList(_ category: ReviewCategory) -> some View {
+        let baseNodes = drillPath.last.flatMap { childCache[$0.id] } ?? category.groups
+        let filteredNodes = baseNodes.filter { node in
+            let matchesSearch = searchText.isEmpty || node.name.localizedCaseInsensitiveContains(searchText)
+            let matchesSize = !onlyLargeFiles || node.size >= 100 * 1024 * 1024
+            return matchesSearch && matchesSize
+        }
+
         if category.groups.isEmpty {
             VStack(spacing: 8) {
                 Spacer()
@@ -378,23 +397,34 @@ struct ReviewBrowserView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if filteredNodes.isEmpty {
+            VStack(spacing: 8) {
+                Spacer()
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.secondary)
+                Text("No items match your filter")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            let nodes = drillPath.last.flatMap { childCache[$0.id] } ?? category.groups
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(nodes.prefix(Self.maxRows)) { node in
+                    ForEach(filteredNodes.prefix(Self.maxRows)) { node in
                         nodeRow(node, category: category)
                         Divider()
                             .padding(.leading, 44)
                     }
-                    if nodes.count > Self.maxRows {
-                        Text("Showing the largest \(Self.maxRows) of \(nodes.count) items")
+                    if filteredNodes.count > Self.maxRows {
+                        Text("Showing the largest \(Self.maxRows) of \(filteredNodes.count) items")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .padding(.vertical, 10)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 4)
             }
             .id(drillPath.last?.id ?? "category-\(category.id)")
@@ -409,7 +439,7 @@ struct ReviewBrowserView: View {
                 selection.toggle(node, category: category.id)
             }
             ReviewFileIcon(path: node.iconPath)
-                .frame(width: 26, height: 26)
+                .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(node.name)
                     .font(.system(size: 13))
@@ -428,7 +458,7 @@ struct ReviewBrowserView: View {
                         }
                         if node.isSensitive {
                             Label(
-                                String(localized: "Sensitive path — review before deleting"),
+                                String(localized: "Sensitive path"),
                                 systemImage: "exclamationmark.shield.fill"
                             )
                             .font(.system(size: 10.5, weight: .medium))
@@ -442,7 +472,7 @@ struct ReviewBrowserView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
-                .frame(width: 72, alignment: .trailing)
+                .frame(width: 76, alignment: .trailing)
             if showChevron {
                 Button {
                     drill(into: node)
@@ -515,17 +545,15 @@ struct ReviewBrowserView: View {
             Spacer()
 
             HStack(spacing: 6) {
-                Text("\(selection.selectedCount) Items Selected")
+                Text("\(selection.selectedCount.formatted()) Items Selected")
                     .font(.system(size: 12.5, weight: .medium))
                 Text("·")
                     .foregroundStyle(.tertiary)
                 Text(FileSizeFormatter.format(selection.selectedSize))
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(ReviewPalette.accent)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(Color(nsColor: .systemBlue))
                     .monospacedDigit()
             }
-
-            Spacer()
 
             HStack(spacing: 8) {
                 if let onClean {
@@ -535,14 +563,14 @@ struct ReviewBrowserView: View {
 
                     Button("\(String(localized: "Clean")) (\(FileSizeFormatter.format(selection.selectedSize)))", action: onClean)
                         .buttonStyle(.borderedProminent)
-                        .tint(ReviewPalette.accent)
+                        .tint(Color(nsColor: .systemBlue))
                         .controlSize(.regular)
                         .disabled(selection.selectedCount == 0)
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button(doneTitle, action: onDone)
                         .buttonStyle(.borderedProminent)
-                        .tint(ReviewPalette.accent)
+                        .tint(Color(nsColor: .systemBlue))
                         .controlSize(.regular)
                         .disabled(doneDisabled)
                         .keyboardShortcut(.defaultAction)
@@ -550,8 +578,8 @@ struct ReviewBrowserView: View {
             }
             .padding(.trailing, 16)
         }
-        .frame(height: 48)
-        .background(Color(white: 0.975))
+        .frame(height: 50)
+        .background(Color.white)
     }
 }
 
@@ -608,9 +636,9 @@ struct ReviewCheckbox: View {
         Button(action: action) {
             ZStack {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(state == .off ? Color.white : ReviewPalette.accent)
+                    .fill(state == .off ? Color.white : Color(nsColor: .systemBlue))
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(state == .off ? Color.secondary.opacity(0.45) : ReviewPalette.accent, lineWidth: 1)
+                    .strokeBorder(state == .off ? Color.secondary.opacity(0.45) : Color(nsColor: .systemBlue), lineWidth: 1)
                 switch state {
                 case .on:
                     Image(systemName: "checkmark")
@@ -640,11 +668,11 @@ struct ReviewCategoryIcon: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(isEmpty ? Color.secondary.opacity(0.1) : ReviewPalette.accent.opacity(0.12))
+            .fill(isEmpty ? Color.secondary.opacity(0.1) : Color(nsColor: .systemBlue).opacity(0.12))
             .overlay(
                 Image(systemName: mainSymbol)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isEmpty ? Color.secondary : ReviewPalette.accent)
+                    .foregroundStyle(isEmpty ? Color.secondary : Color(nsColor: .systemBlue))
             )
             .frame(width: 26, height: 26)
     }
@@ -686,20 +714,5 @@ enum ReviewIconCache {
         let image = NSWorkspace.shared.icon(forFile: path)
         cache.setObject(image, forKey: path as NSString)
         return image
-    }
-}
-
-struct ReviewAccentButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(
-                ReviewPalette.accent,
-                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-            )
-            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

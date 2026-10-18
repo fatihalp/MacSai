@@ -263,9 +263,6 @@ struct SmartScanView: View {
                     onDone: { showingReview = false },
                     onClean: { showCleanConfirm = true }
                 )
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
             } else {
                 resultsSummary(totalSize: totalSize)
             }

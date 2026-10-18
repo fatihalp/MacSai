@@ -122,9 +122,6 @@ struct SystemJunkView: View {
                     }
                 }
             )
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 20)
             .alert(
                 "Clean \(viewModel.selectedCount.formatted()) items?",
                 isPresented: $showLargeSelectionConfirm
