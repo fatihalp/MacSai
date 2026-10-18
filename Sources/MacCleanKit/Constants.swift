@@ -170,5 +170,5 @@ public enum MCConstants {
 
     public static let homebrewCaskAPI = URL(string: "https://formulae.brew.sh/api/cask/mac-sai.json")!
 
-    public static let appVersion = "1.25.4"
+    public static let appVersion = "1.26.0"
 }
