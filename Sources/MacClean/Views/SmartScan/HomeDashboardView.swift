@@ -203,7 +203,7 @@ struct HomeDashboardView: View {
 
     private func featureCard(item: SidebarItem, title: String, description: String, icon: String, color: Color) -> some View {
         Button {
-            appState.selectedSidebarItem = item
+            appState.selectItem(item)
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 ZStack {

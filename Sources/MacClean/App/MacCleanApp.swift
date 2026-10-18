@@ -39,7 +39,7 @@ struct MacCleanApp: App {
                           url.pathComponents.count == 2,
                           let id = url.pathComponents.last,
                           let item = SidebarItem(deepLinkID: id) else { return }
-                    appState.selectedSidebarItem = item
+                    appState.selectItem(item)
                 }
         }
         .windowStyle(.titleBar)
@@ -48,7 +48,7 @@ struct MacCleanApp: App {
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
-                    appState.selectedSidebarItem = .settings
+                    appState.selectCategory(.settings)
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
@@ -68,7 +68,7 @@ struct MacCleanApp: App {
                 ForEach(1...9, id: \.self) { digit in
                     if let item = SidebarItem.item(forShortcutDigit: digit) {
                         Button(item.title) {
-                            appState.selectedSidebarItem = item
+                            appState.selectItem(item)
                         }
                         .keyboardShortcut(KeyEquivalent(Character(String(digit))), modifiers: .command)
                     }

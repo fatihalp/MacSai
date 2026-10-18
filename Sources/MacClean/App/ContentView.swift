@@ -14,41 +14,71 @@ struct ContentView: View {
         @Bindable var state = appState
 
         NavigationSplitView {
-            SidebarView(selection: $state.selectedSidebarItem)
-                .toolbar(removing: .sidebarToggle)
+            SidebarView(
+                selection: Binding(
+                    get: { state.selectedCategory },
+                    set: { state.selectCategory($0) }
+                ),
+                onSelectSubItem: { item in
+                    state.selectItem(item)
+                }
+            )
+            .toolbar(removing: .sidebarToggle)
         } detail: {
-            ZStack {
-                Color.white
-                    .ignoresSafeArea()
+            VStack(spacing: 0) {
+                if state.selectedCategory.subItems.count > 1 {
+                    HStack {
+                        Picker("", selection: Binding(
+                            get: { state.selectedSidebarItem ?? state.selectedCategory.subItems[0] },
+                            set: { state.selectItem($0) }
+                        )) {
+                            ForEach(state.selectedCategory.subItems) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
 
-                ForEach(SidebarItem.allCases, id: \.self) { item in
-                    if visited.contains(item) || item == appState.selectedSidebarItem {
-                        let isSelected = item == appState.selectedSidebarItem
-                        moduleView(for: item)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(isSelected ? 1 : 0)
-                            .allowsHitTesting(isSelected)
-                            .accessibilityHidden(!isSelected)
-                            .environment(\.moduleIsSelected, isSelected)
+                    Divider()
+                }
+
+                ZStack {
+                    Color.white
+                        .ignoresSafeArea()
+
+                    ForEach(SidebarItem.allCases, id: \.self) { item in
+                        if visited.contains(item) || item == appState.selectedSidebarItem {
+                            let isSelected = item == appState.selectedSidebarItem
+                            moduleView(for: item)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .opacity(isSelected ? 1 : 0)
+                                .allowsHitTesting(isSelected)
+                                .accessibilityHidden(!isSelected)
+                                .environment(\.moduleIsSelected, isSelected)
+                        }
+                    }
+
+                    if appState.selectedSidebarItem == nil {
+                        Text("Select a module from the sidebar")
+                            .foregroundStyle(.secondary)
                     }
                 }
-
-                if appState.selectedSidebarItem == nil {
-                    Text("Select a module from the sidebar")
-                        .foregroundStyle(.secondary)
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.white)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white)
         }
-        .navigationTitle(appState.selectedSidebarItem?.title ?? MCConstants.appName)
+        .navigationTitle(state.selectedCategory == .smartScan ? MCConstants.appName : state.selectedCategory.title)
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 ControlGroup {
                     Button {
                         if historyIndex > 0 {
                             historyIndex -= 1
-                            appState.selectedSidebarItem = history[historyIndex]
+                            appState.selectItem(history[historyIndex])
                         }
                     } label: {
                         Image(systemName: "chevron.left")
@@ -58,7 +88,7 @@ struct ContentView: View {
                     Button {
                         if historyIndex + 1 < history.count {
                             historyIndex += 1
-                            appState.selectedSidebarItem = history[historyIndex]
+                            appState.selectItem(history[historyIndex])
                         }
                     } label: {
                         Image(systemName: "chevron.right")

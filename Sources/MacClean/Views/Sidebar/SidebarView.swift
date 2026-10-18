@@ -136,6 +136,18 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
+    public var category: SidebarCategory {
+        switch self {
+        case .smartScan: .smartScan
+        case .systemJunk, .mailAttachments, .trashBins, .diskHogs, .projectJunk, .cleanHistory: .cleanup
+        case .malwareRemoval, .privacy, .wifiNetworks, .appPermissions, .browserExtensions: .protection
+        case .optimization, .maintenance: .performance
+        case .uninstaller, .unusedApps, .extensions, .updater: .applications
+        case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
+        case .settings: .settings
+        }
+    }
+
     public var theme: ModuleTheme {
         switch self {
         case .smartScan: .smartScan
@@ -145,18 +157,6 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .uninstaller, .unusedApps, .extensions, .updater: .applications
         case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
         case .settings: .settings
-        }
-    }
-
-    public var section: SidebarSection {
-        switch self {
-        case .smartScan: .main
-        case .systemJunk, .mailAttachments, .trashBins, .projectJunk, .diskHogs, .cleanHistory: .cleanup
-        case .malwareRemoval, .privacy, .browserExtensions, .wifiNetworks, .appPermissions: .protection
-        case .optimization, .maintenance: .performance
-        case .uninstaller, .unusedApps, .extensions, .updater: .applications
-        case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
-        case .settings: .main
         }
     }
 
@@ -171,28 +171,77 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
     }
 }
 
-public enum SidebarSection: String, CaseIterable, Identifiable {
-    case main = ""
+public enum SidebarCategory: String, CaseIterable, Identifiable {
+    case smartScan = "Smart Scan"
     case cleanup = "Cleanup"
     case protection = "Protection"
     case performance = "Performance"
     case applications = "Applications"
     case files = "Files"
+    case settings = "Settings"
 
     public var id: String { rawValue }
     public var title: String { rawValue }
 
-    public var items: [SidebarItem] {
-        SidebarItem.allCases.filter { $0.section == self && $0 != .settings }
+    public var icon: String {
+        switch self {
+        case .smartScan: "sparkles"
+        case .cleanup: "trash.fill"
+        case .protection: "shield.fill"
+        case .performance: "gauge.with.dots.needle.67percent"
+        case .applications: "square.stack.3d.up.fill"
+        case .files: "doc.fill"
+        case .settings: "gearshape.fill"
+        }
+    }
+
+    public var iconColor: Color {
+        switch self {
+        case .smartScan:
+            Color(nsColor: .systemIndigo)
+        case .cleanup:
+            Color(nsColor: .systemBlue)
+        case .protection:
+            Color(nsColor: .systemGreen)
+        case .performance:
+            Color(nsColor: .systemOrange)
+        case .applications:
+            Color(nsColor: .systemRed)
+        case .files:
+            Color(nsColor: .systemTeal)
+        case .settings:
+            Color(nsColor: .systemGray)
+        }
+    }
+
+    public var subItems: [SidebarItem] {
+        switch self {
+        case .smartScan:
+            [.smartScan]
+        case .cleanup:
+            [.systemJunk, .mailAttachments, .trashBins, .diskHogs, .projectJunk, .cleanHistory]
+        case .protection:
+            [.malwareRemoval, .privacy, .wifiNetworks, .appPermissions, .browserExtensions]
+        case .performance:
+            [.optimization, .maintenance]
+        case .applications:
+            [.uninstaller, .unusedApps, .extensions, .updater]
+        case .files:
+            [.spaceLens, .largeOldFiles, .duplicates, .shredder]
+        case .settings:
+            [.settings]
+        }
     }
 }
 
 public struct SidebarView: View {
-    @Binding var selection: SidebarItem?
+    @Binding var selection: SidebarCategory
+    var onSelectSubItem: ((SidebarItem) -> Void)? = nil
     @State private var searchText: String = ""
 
-    public init(selection: Binding<SidebarItem?>) {
+    public init(selection: Binding<SidebarCategory>, onSelectSubItem: ((SidebarItem) -> Void)? = nil) {
         self._selection = selection
+        self.onSelectSubItem = onSelectSubItem
     }
 
     public var body: some View {
@@ -200,20 +249,53 @@ public struct SidebarView: View {
             searchBar
 
             List(selection: $selection) {
-                ForEach(SidebarSection.allCases) { section in
-                    let matchingItems = section.items.filter { item in
-                        searchText.isEmpty || item.title.localizedCaseInsensitiveContains(searchText)
+                if searchText.isEmpty {
+                    ForEach(SidebarCategory.allCases.filter { $0 != .settings }) { category in
+                        sidebarCategoryRow(category)
                     }
-                    if !matchingItems.isEmpty {
-                        if section == .main {
-                            ForEach(matchingItems) { item in
-                                sidebarRow(item)
+                } else {
+                    let matchingSubItems = SidebarItem.allCases.filter {
+                        $0 != .settings && $0 != .smartScan && $0.title.localizedCaseInsensitiveContains(searchText)
+                    }
+                    let matchingCategories = SidebarCategory.allCases.filter {
+                        $0 != .settings && $0.title.localizedCaseInsensitiveContains(searchText)
+                    }
+
+                    if !matchingCategories.isEmpty {
+                        Section("Categories") {
+                            ForEach(matchingCategories) { category in
+                                sidebarCategoryRow(category)
                             }
-                        } else {
-                            Section(section.title) {
-                                ForEach(matchingItems) { item in
-                                    sidebarRow(item)
+                        }
+                    }
+
+                    if !matchingSubItems.isEmpty {
+                        Section("Features") {
+                            ForEach(matchingSubItems) { item in
+                                Button {
+                                    selection = item.category
+                                    onSelectSubItem?(item)
+                                } label: {
+                                    Label {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(item.title)
+                                                .font(.system(size: 13))
+                                            Text(item.category.title)
+                                                .font(.system(size: 10.5))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    } icon: {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                                .fill(item.iconColor)
+                                            Image(systemName: item.icon)
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundStyle(.white)
+                                        }
+                                        .frame(width: 20, height: 20)
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -273,7 +355,7 @@ public struct SidebarView: View {
             HStack(spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(SidebarItem.settings.iconColor)
+                        .fill(SidebarCategory.settings.iconColor)
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
@@ -301,20 +383,20 @@ public struct SidebarView: View {
         .accessibilityLabel("Settings")
     }
 
-    private func sidebarRow(_ item: SidebarItem) -> some View {
+    private func sidebarCategoryRow(_ category: SidebarCategory) -> some View {
         Label {
-            Text(item.title)
-                .font(.system(size: 13))
+            Text(category.title)
+                .font(.system(size: 13, weight: selection == category ? .medium : .regular))
         } icon: {
             ZStack {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(item.iconColor)
-                Image(systemName: item.icon)
+                    .fill(category.iconColor)
+                Image(systemName: category.icon)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .frame(width: 20, height: 20)
         }
-        .tag(item)
+        .tag(category)
     }
 }

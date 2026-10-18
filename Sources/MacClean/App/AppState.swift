@@ -3,6 +3,7 @@ import MacCleanKit
 
 @Observable
 public final class AppState {
+    var selectedCategory: SidebarCategory = .smartScan
     var selectedSidebarItem: SidebarItem? = .smartScan
     var scanCoordinator = ScanCoordinator()
     let cleaningEngine = CleaningEngine()
@@ -17,9 +18,22 @@ public final class AppState {
     func requestScanShortcut() { scanShortcutNonce &+= 1 }
     func requestCleanShortcut() { cleanShortcutNonce &+= 1 }
 
+    func selectCategory(_ category: SidebarCategory) {
+        selectedCategory = category
+        if let current = selectedSidebarItem, current.category == category {
+            return
+        }
+        selectedSidebarItem = category.subItems.first
+    }
+
+    func selectItem(_ item: SidebarItem) {
+        selectedCategory = item.category
+        selectedSidebarItem = item
+    }
+
     func openUninstaller(forAppPath path: String) {
         pendingUninstallerAppPath = path
-        selectedSidebarItem = .uninstaller
+        selectItem(.uninstaller)
     }
 
     init() {
