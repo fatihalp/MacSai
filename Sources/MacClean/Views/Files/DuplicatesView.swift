@@ -167,7 +167,7 @@ struct DuplicatesView: View {
             .background(.primary.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            ScanButton(title: String(localized: "Scan"), subtitle: String(localized: "Duplicates"), theme: .files, action: scan)
+            ScanButton(title: "Scan", subtitle: "Duplicates", theme: .files, action: scan)
 
             Spacer()
         }

@@ -77,7 +77,7 @@ struct LogViewerView: View {
             Button {
                 copyAll()
             } label: {
-                Label(copied ? String(localized: "Copied") : String(localized: "Copy All"),
+                Label(copied ? "Copied" : "Copy All",
                       systemImage: copied ? "checkmark" : "doc.on.doc")
             }
             .buttonStyle(.bordered)

@@ -278,7 +278,7 @@ struct MenuContentView: View {
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(tint)
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(p.threatsFound > 0 ? "\(p.threatsFound) threat\(p.threatsFound == 1 ? "" : "s") found" : String(localized: "Protected"))
+                Text(p.threatsFound > 0 ? "\(p.threatsFound) threat\(p.threatsFound == 1 ? "" : "s") found" : "Protected")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
                 Text("Scanned \(relativeTime(p.lastScanDate)) · \(p.localizedScanDepth)")
                     .font(.system(size: 10)).foregroundStyle(MenuPalette.textSecondary)
@@ -290,7 +290,7 @@ struct MenuContentView: View {
 
     private func devicesCard(_ d: ConnectedDevices) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(icon: "externaldrive.connected.to.line.below", title: String(localized: "Connected"), tint: MenuPalette.teal)
+            sectionHeader(icon: "externaldrive.connected.to.line.below", title: "Connected", tint: MenuPalette.teal)
             ForEach(d.externalVolumes) { v in
                 HStack(spacing: 7) {
                     Image(systemName: "externaldrive.fill").font(.system(size: 10)).foregroundStyle(MenuPalette.teal.opacity(0.8))

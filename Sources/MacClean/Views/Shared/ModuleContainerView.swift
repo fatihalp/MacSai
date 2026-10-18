@@ -229,7 +229,7 @@ struct ModuleContainerView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 400)
             }
-            ScanButton(title: String(localized: "Scan"), subtitle: title, theme: theme, action: onScan)
+            ScanButton(title: "Scan", subtitle: title, theme: theme, action: onScan)
             Spacer()
         }
     }
@@ -304,7 +304,7 @@ struct ModuleContainerView: View {
                     SizeDisplay(size: totalSelected, label: String(localized: "Selected"))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Button(actionLabel ?? String(localized: "Clean")) {
+                    Button(actionLabel ?? "Clean") {
                         requestClean()
                     }
                     .buttonStyle(.borderedProminent)
@@ -333,7 +333,7 @@ struct ModuleContainerView: View {
                     ReviewBrowserView(
                         data: review.data,
                         selection: review,
-                        doneTitle: actionLabel ?? String(localized: "Clean"),
+                        doneTitle: actionLabel ?? "Clean",
                         doneDisabled: review.selectedCount == 0,
                         onDone: requestClean
                     )

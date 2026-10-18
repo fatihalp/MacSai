@@ -64,7 +64,7 @@ struct ShredderView: View {
                     .tint(.primary)
                 }
             } else if isProcessing {
-                ProgressView(String(localized: "Shredding files..."))
+                ProgressView("Shredding files...")
                     .foregroundStyle(.primary)
                     .tint(.primary)
             } else if filesToShred.isEmpty {

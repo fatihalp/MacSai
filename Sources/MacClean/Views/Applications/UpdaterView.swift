@@ -27,7 +27,7 @@ struct UpdaterView: View {
                 }
                 Spacer()
                 if !isChecking {
-                    Button(hasChecked ? String(localized: "Recheck") : String(localized: "Check for Updates")) {
+                    Button(hasChecked ? "Recheck" : "Check for Updates") {
                         checkUpdates()
                     }
                     .buttonStyle(.borderedProminent)
@@ -40,7 +40,7 @@ struct UpdaterView: View {
 
             if isChecking {
                 Spacer()
-                ScanProgressRing(progress: 0.5, phase: String(localized: "Checking for updates..."), theme: .applications)
+                ScanProgressRing(progress: 0.5, phase: "Checking for updates...", theme: .applications)
                 Spacer()
             } else if hasChecked && updates.isEmpty {
                 Spacer()

@@ -139,7 +139,7 @@ struct UninstallerView: View {
                             .buttonStyle(.bordered)
                             .controlSize(.regular)
 
-                            Button("\(String(localized: "Uninstall")) (\(checkedApps.count))") {
+                            Button("Uninstall (\(checkedApps.count))") {
                                 showBatchConfirm = true
                             }
                             .buttonStyle(.borderedProminent)
@@ -200,7 +200,7 @@ struct UninstallerView: View {
         } message: { app in
             Text("\(app.name) and its associated files will be moved to the Trash. You can restore them from the Trash if needed.")
         }
-        .alert(String(localized: "Uninstall"),
+        .alert("Uninstall",
                isPresented: Binding(get: { uninstallError != nil },
                                     set: { if !$0 { uninstallError = nil } })) {
             Button("OK", role: .cancel) { uninstallError = nil }
@@ -223,7 +223,7 @@ struct UninstallerView: View {
             let bytes = plan?.items.reduce(0 as UInt64) { $0 + $1.size } ?? 0
             Text("Caches, preferences, and saved state for \(app.name) (\(count) items, \(FileSizeFormatter.format(bytes))) will be moved to the Trash. The app stays installed. Quit the app first if it is running, or it may rewrite these files.")
         }
-        .alert(String(localized: "Reset to Defaults"),
+        .alert("Reset to Defaults",
                isPresented: Binding(get: { resetError != nil },
                                     set: { if !$0 { resetError = nil } })) {
             Button("OK", role: .cancel) { resetError = nil }
@@ -355,7 +355,7 @@ struct UninstallerView: View {
 
             if isLoadingFiles {
                 Spacer()
-                ProgressView(String(localized: "Finding associated files..."))
+                ProgressView("Finding associated files...")
                     .tint(.secondary)
                     .font(.system(size: 12))
                 Spacer()

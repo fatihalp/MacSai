@@ -5,7 +5,7 @@ import MacCleanKit
 struct ReviewBrowserView: View {
     let data: ReviewData
     let selection: ReviewSelection
-    var doneTitle: String = String(localized: "Done")
+    var doneTitle: String = "Done"
     var doneDisabled: Bool = false
     let onDone: () -> Void
     var onClean: (() -> Void)? = nil
@@ -24,7 +24,7 @@ struct ReviewBrowserView: View {
         data: ReviewData,
         selection: ReviewSelection,
         initialSectionID: String? = nil,
-        doneTitle: String = String(localized: "Done"),
+        doneTitle: String = "Done",
         doneDisabled: Bool = false,
         onDone: @escaping () -> Void,
         onClean: (() -> Void)? = nil
@@ -561,7 +561,7 @@ struct ReviewBrowserView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.regular)
 
-                    Button("\(String(localized: "Clean")) (\(FileSizeFormatter.format(selection.selectedSize)))", action: onClean)
+                    Button("Clean (\(FileSizeFormatter.format(selection.selectedSize)))", action: onClean)
                         .buttonStyle(.borderedProminent)
                         .tint(Color(nsColor: .systemBlue))
                         .controlSize(.regular)

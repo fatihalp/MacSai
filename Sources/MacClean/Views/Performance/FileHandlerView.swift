@@ -90,10 +90,10 @@ struct FileHandlerView: View {
         .sheet(isPresented: $viewModel.showRestoreSheet) {
             restoreSheet
         }
-        .alert(String(localized: "Error"), isPresented: $viewModel.showError) {
+        .alert("Error", isPresented: $viewModel.showError) {
             Button("OK") { viewModel.showError = false }
         } message: {
-            Text(viewModel.errorMessage ?? String(localized: "An unknown error occurred"))
+            Text(viewModel.errorMessage ?? "An unknown error occurred")
         }
         .onAppear { viewModel.loadHandlers() }
     }

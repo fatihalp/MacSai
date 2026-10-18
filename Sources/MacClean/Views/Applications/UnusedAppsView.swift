@@ -75,7 +75,7 @@ struct UnusedAppsView: View {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView().controlSize(.large)
-                        Text(isUninstalling ? String(localized: "Uninstalling…") : String(localized: "Looking for unused apps…"))
+                        Text(isUninstalling ? "Uninstalling…" : "Looking for unused apps…")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -158,7 +158,7 @@ struct UnusedAppsView: View {
                         }
                         .buttonStyle(.bordered)
 
-                        Button("\(String(localized: "Move to Trash")) (\(selectedApps.count))") {
+                        Button("Move to Trash (\(selectedApps.count))") {
                             showBatchConfirm = true
                         }
                         .buttonStyle(.borderedProminent)

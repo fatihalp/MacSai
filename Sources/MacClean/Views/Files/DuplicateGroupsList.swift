@@ -62,7 +62,7 @@ struct DuplicateGroupsList: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(allExpanded ? String(localized: "Collapse all") : String(localized: "Expand all")) {
+            Button(allExpanded ? "Collapse all" : "Expand all") {
                 if allExpanded { expanded.removeAll() }
                 else { expanded = Set(groups.map(\.id)) }
             }

@@ -130,7 +130,7 @@ struct WiFiNetworksView: View {
         } message: { nets in
             Text("\(nets.count) saved Wi-Fi \(nets.count == 1 ? "network" : "networks") will be removed from this Mac. macOS will ask for administrator access. Forgetting the network you are on may disconnect you.")
         }
-        .alert(String(localized: "Saved Wi-Fi"),
+        .alert("Saved Wi-Fi",
                isPresented: Binding(get: { errorMessage != nil && !networks.isEmpty },
                                     set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) { errorMessage = nil }
