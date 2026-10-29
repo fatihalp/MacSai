@@ -3,16 +3,7 @@ import AppKit
 import MacCleanKit
 
 struct UpdaterView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var updates: [AppUpdateChecker.AppUpdate] = []
-    @State private var isChecking = false
-    @State private var hasChecked = false
-    @State private var apps: [AppInfo] = []
-
-    @State private var updatingIDs: Set<UUID> = []
-
-    private let discovery = AppDiscovery()
-    private let checker = AppUpdateChecker()
+    @State private var controller = UpdaterController()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,9 +17,9 @@ struct UpdaterView: View {
                         .foregroundStyle(.primary.opacity(0.6))
                 }
                 Spacer()
-                if !isChecking {
-                    Button(hasChecked ? "Recheck" : "Check for Updates") {
-                        checkUpdates()
+                if !controller.isChecking {
+                    Button(controller.hasChecked ? "Recheck" : "Check for Updates") {
+                        controller.checkUpdates()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
@@ -38,11 +29,11 @@ struct UpdaterView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
-            if isChecking {
+            if controller.isChecking {
                 Spacer()
                 ScanProgressRing(progress: 0.5, phase: "Checking for updates...", theme: .applications)
                 Spacer()
-            } else if hasChecked && updates.isEmpty {
+            } else if controller.hasChecked && controller.updates.isEmpty {
                 Spacer()
                 VStack(spacing: 14) {
                     Image(systemName: "checkmark.circle.fill")
@@ -53,9 +44,9 @@ struct UpdaterView: View {
                         .foregroundStyle(.primary.opacity(0.7))
                 }
                 Spacer()
-            } else if !updates.isEmpty {
+            } else if !controller.updates.isEmpty {
                 List {
-                    ForEach(updates) { update in
+                    ForEach(controller.updates) { update in
                         HStack {
                             Image(nsImage: NSWorkspace.shared.icon(forFile: update.app.path.path(percentEncoded: false)))
                                 .resizable()
@@ -71,12 +62,12 @@ struct UpdaterView: View {
 
                             Spacer()
 
-                            if updatingIDs.contains(update.id) {
+                            if controller.updatingIDs.contains(update.id) {
                                 ProgressView()
                                     .controlSize(.small)
                                     .frame(width: 60)
                             } else {
-                                Button("Update") { startUpdate(update) }
+                                Button("Update") { controller.startUpdate(update) }
                                     .buttonStyle(.bordered)
                                     .controlSize(.small)
                             }
@@ -104,26 +95,6 @@ struct UpdaterView: View {
                 }
                 Spacer()
             }
-        }
-    }
-
-    private func checkUpdates() {
-        isChecking = true
-        Task {
-            apps = await discovery.discoverApps()
-            updates = await checker.checkForUpdates(apps: apps)
-            isChecking = false
-            hasChecked = true
-        }
-    }
-
-    private func startUpdate(_ update: AppUpdateChecker.AppUpdate) {
-        guard !updatingIDs.contains(update.id) else { return }
-        updatingIDs.insert(update.id)
-        Task {
-            UpdaterActions.perform(update)
-            try? await Task.sleep(for: .milliseconds(1200))
-            updatingIDs.remove(update.id)
         }
     }
 }

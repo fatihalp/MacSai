@@ -2,13 +2,7 @@ import SwiftUI
 import MacCleanKit
 
 struct ShredderView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var filesToShred: [URL] = []
-    @State private var eraseMode: SecureEraser.EraseMode = .standard
-    @State private var isProcessing = false
-    @State private var result: SecureEraser.EraseResult?
-
-    private let eraser = SecureEraser()
+    @State private var controller = ShredderController()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +21,7 @@ struct ShredderView: View {
 
             Spacer()
 
-            if let result {
+            if let result = controller.result {
                 VStack(spacing: 16) {
                     Image(systemName: result.errors.isEmpty
                           ? "checkmark.circle.fill"
@@ -57,17 +51,17 @@ struct ShredderView: View {
                     }
 
                     Button("Done") {
-                        self.result = nil
-                        filesToShred = []
+                        controller.result = nil
+                        controller.filesToShred = []
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                 }
-            } else if isProcessing {
+            } else if controller.isProcessing {
                 ProgressView("Shredding files...")
                     .foregroundStyle(.primary)
                     .tint(.primary)
-            } else if filesToShred.isEmpty {
+            } else if controller.filesToShred.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "scissors")
                         .font(.system(size: 50))
@@ -78,13 +72,13 @@ struct ShredderView: View {
                         .foregroundStyle(.primary.opacity(0.6))
 
                     Button("Select Files") {
-                        selectFiles()
+                        controller.selectFiles()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.large)
 
-                    Picker("Mode", selection: $eraseMode) {
+                    Picker("Mode", selection: $controller.eraseMode) {
                         Text("Move to Trash").tag(SecureEraser.EraseMode.standard)
                         Text("Permanent Delete").tag(SecureEraser.EraseMode.permanent)
                         Text("Secure Erase").tag(SecureEraser.EraseMode.secure)
@@ -97,18 +91,18 @@ struct ShredderView: View {
                 }
             } else {
                 VStack(spacing: 16) {
-                    Text("\(filesToShred.count) files selected")
+                    Text("\(controller.filesToShred.count) files selected")
                         .font(.headline)
                         .foregroundStyle(.primary)
 
-                    List(filesToShred, id: \.self) { url in
+                    List(controller.filesToShred, id: \.self) { url in
                         HStack {
                             Image(systemName: "doc")
                             Text(url.lastPathComponent)
                                 .lineLimit(1)
                             Spacer()
                             Button {
-                                filesToShred.removeAll { $0 == url }
+                                controller.filesToShred.removeAll { $0 == url }
                             } label: {
                                 Image(systemName: "xmark.circle")
                                     .foregroundStyle(.secondary)
@@ -127,7 +121,7 @@ struct ShredderView: View {
                     .padding(.horizontal, 40)
 
                     Button("Shred") {
-                        shred()
+                        controller.shred()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
@@ -136,25 +130,6 @@ struct ShredderView: View {
             }
 
             Spacer()
-        }
-    }
-
-    private func selectFiles() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-
-        if panel.runModal() == .OK {
-            filesToShred = panel.urls
-        }
-    }
-
-    private func shred() {
-        isProcessing = true
-        Task {
-            result = await eraser.erase(urls: filesToShred, mode: eraseMode)
-            isProcessing = false
         }
     }
 }

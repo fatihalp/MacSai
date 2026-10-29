@@ -18,7 +18,6 @@
   <a href="https://github.com/iliyami/MacSai/releases/latest"><img src="https://img.shields.io/github/v/release/iliyami/MacSai?style=flat-square&color=blue" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-1048%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen?style=flat-square" alt="No telemetry" />
   <img src="https://img.shields.io/badge/Apple-notarized-black?style=flat-square&logo=apple" alt="Notarized" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
@@ -256,7 +255,6 @@ Récupérez le dernier DMG depuis les [Releases](https://github.com/iliyami/MacS
 git clone https://github.com/iliyami/MacSai.git
 cd MacSai
 swift build
-swift test                     # exécuter la suite complète de 1048 tests
 bash scripts/build-dmg.sh      # compiler un DMG local (non signé)
 ```
 
@@ -388,23 +386,13 @@ Mac Sai est conçu pour **ne jamais causer de perte de données** :
 
 ---
 
-## Tests
-
-```bash
-swift test
-```
-
-La suite XCTest compte **1048 tests** et traite `SafetyGuard` et `CleaningEngine` (les fichiers de vie ou de mort) comme devant être parfaits : couverture adversariale des liens symboliques, de la traversée de chemins, des octets NULL, de SIP, des apps protégées, des plafonds de nombre de fichiers, du TOCTOU et de l'idempotence, plus une couverture d'intégration du nettoyage en simulation / corbeille / permanent, de la machine à états du scan, de chaque catégorie de System Junk, des calculs de treemap, du moteur de correspondance du désinstalleur, de la détection des doublons, de l'analyse d'appcast, et de cycles complets de bout en bout de la préparation au nettoyage. Les fixtures (`withTempHome`, `withFakeApp`, `withFakePlist`) gardent chaque test hors de votre vrai dossier personnel.
-
----
-
 ## Contribuer
 
 Les contributions sont très bienvenues. Lisez les [Directives de contribution](CONTRIBUTING.md), puis :
 
 1. Forkez le dépôt et créez une branche de fonctionnalité
 2. Faites votre modification (une modification ciblée par PR facilite la revue)
-3. Exécutez `swift test`
+3. Exécutez `swift build`
 4. Ouvrez une Pull Request
 
 Il y a aussi un [vote de fonctionnalités](https://github.com/iliyami/MacSai/issues/55) ouvert : mettez un 👍 sur les outils que vous voulez voir construits ensuite.

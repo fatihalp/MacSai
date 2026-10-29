@@ -3,43 +3,11 @@ import AppKit
 import MacCleanKit
 
 struct UninstallerView: View {
+    @Bindable var controller: UninstallerController
     @Environment(AppState.self) private var appState
-    @State private var apps: [AppInfo] = []
-    @State private var selectedApp: AppInfo?
-    @State private var checkedAppIDs: Set<UUID> = []
-    @State private var associatedFiles: [FileItem] = []
-    @State private var selectedFiles: Set<URL> = []
-    @State private var isLoading = true
-    @State private var isLoadingFiles = false
-    @State private var isUninstalling = false
-    @State private var isResetting = false
     @State private var appPendingUninstall: AppInfo?
     @State private var appPendingReset: AppInfo?
     @State private var showBatchConfirm = false
-    @State private var uninstallError: String?
-    @State private var resetError: String?
-    @State private var filter: AppFilter = .all
-    @State private var searchText = ""
-
-    enum AppFilter: String, CaseIterable {
-        case all = "All"
-        case unused = "Unused"
-        case thirdParty = "Third-party"
-
-        var label: String { String(localized: rawValue) }
-    }
-
-    private let discovery = AppDiscovery()
-    private let pathFinder = AppPathFinder()
-    private let safetyGuard = SafetyGuard()
-
-    private var checkedApps: [AppInfo] {
-        apps.filter { checkedAppIDs.contains($0.id) && !safetyGuard.isProtectedApp($0.bundleIdentifier) }
-    }
-
-    private var checkedTotalSize: UInt64 {
-        checkedApps.reduce(0) { $0 + $1.size }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,11 +21,11 @@ struct UninstallerView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if !isLoading && !filteredApps.isEmpty {
+                if !controller.isLoading && !controller.filteredApps.isEmpty {
                     HStack(spacing: 8) {
                         Button("Select All") {
-                            for app in filteredApps where !safetyGuard.isProtectedApp(app.bundleIdentifier) {
-                                checkedAppIDs.insert(app.id)
+                            for app in controller.filteredApps where !controller.safetyGuard.isProtectedApp(app.bundleIdentifier) {
+                                controller.checkedAppIDs.insert(app.id)
                             }
                         }
                         .buttonStyle(.bordered)
@@ -65,11 +33,11 @@ struct UninstallerView: View {
                         .keyboardShortcut("a", modifiers: .command)
 
                         Button("Deselect All") {
-                            checkedAppIDs.removeAll()
+                            controller.checkedAppIDs.removeAll()
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(checkedAppIDs.isEmpty)
+                        .disabled(controller.checkedAppIDs.isEmpty)
                         .keyboardShortcut("a", modifiers: [.command, .option])
                     }
                 }
@@ -77,7 +45,7 @@ struct UninstallerView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
-            if isLoading {
+            if controller.isLoading {
                 Spacer()
                 VStack(spacing: 12) {
                     ProgressView()
@@ -89,11 +57,11 @@ struct UninstallerView: View {
                 Spacer()
             } else {
                 HStack(spacing: 10) {
-                    TextField("Search apps...", text: $searchText)
+                    TextField("Search apps...", text: $controller.searchText)
                         .textFieldStyle(.roundedBorder)
 
-                    Picker("Filter", selection: $filter) {
-                        ForEach(AppFilter.allCases, id: \.self) { f in
+                    Picker("Filter", selection: $controller.filter) {
+                        ForEach(UninstallerController.AppFilter.allCases, id: \.self) { f in
                             Text(f.label).tag(f)
                         }
                     }
@@ -109,7 +77,7 @@ struct UninstallerView: View {
                         appList
                             .frame(minWidth: 260)
 
-                        if let app = selectedApp {
+                        if let app = controller.selectedApp {
                             appDetailView(app)
                                 .frame(minWidth: 300)
                                 .background(Color.white)
@@ -126,26 +94,26 @@ struct UninstallerView: View {
                         }
                     }
 
-                    if !checkedApps.isEmpty {
+                    if !controller.checkedApps.isEmpty {
                         Divider()
                         HStack(spacing: 12) {
-                            Text("\(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(checkedTotalSize))")
+                            Text("\(controller.checkedApps.count) app\(controller.checkedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(controller.checkedTotalSize))")
                                 .font(.system(size: 12.5, weight: .medium))
                                 .foregroundStyle(.primary)
                             Spacer()
                             Button("Deselect All") {
-                                checkedAppIDs.removeAll()
+                                controller.checkedAppIDs.removeAll()
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.regular)
 
-                            Button("Uninstall (\(checkedApps.count))") {
+                            Button("Uninstall (\(controller.checkedApps.count))") {
                                 showBatchConfirm = true
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
                             .controlSize(.regular)
-                            .disabled(isUninstalling)
+                            .disabled(controller.isUninstalling)
                         }
                         .padding(.horizontal, 16)
                         .frame(height: 48)
@@ -163,28 +131,35 @@ struct UninstallerView: View {
             }
         }
         .background(Color.white)
-        .task { await loadApps() }
+        .task {
+            await controller.loadApps()
+            if let path = appState.pendingUninstallerAppPath {
+                appState.pendingUninstallerAppPath = nil
+                controller.selectPendingApp(path: path)
+            }
+        }
         .respondsToModuleShortcuts(
-            onScan: { Task { await loadApps() } },
+            onScan: { Task { await controller.loadApps() } },
             onClean: {
-                if !checkedApps.isEmpty {
+                if !controller.checkedApps.isEmpty {
                     showBatchConfirm = true
-                } else if let app = selectedApp, !safetyGuard.isProtectedApp(app.bundleIdentifier) {
+                } else if let app = controller.selectedApp, !controller.safetyGuard.isProtectedApp(app.bundleIdentifier) {
                     appPendingUninstall = app
                 }
             },
-            canScan: !isLoading && !isUninstalling,
-            canClean: !checkedApps.isEmpty || (selectedApp != nil && !safetyGuard.isProtectedApp(selectedApp?.bundleIdentifier ?? ""))
+            canScan: !controller.isLoading && !controller.isUninstalling,
+            canClean: !controller.checkedApps.isEmpty || (controller.selectedApp != nil && !controller.safetyGuard.isProtectedApp(controller.selectedApp?.bundleIdentifier ?? ""))
         )
         .onChange(of: appState.pendingUninstallerAppPath) { _, path in
             guard let path else { return }
-            selectPendingApp(path: path)
+            appState.pendingUninstallerAppPath = nil
+            controller.selectPendingApp(path: path)
         }
-        .alert("Move \(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s") to the Trash?",
+        .alert("Move \(controller.checkedApps.count) app\(controller.checkedApps.count == 1 ? "" : "s") to the Trash?",
                isPresented: $showBatchConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Move to Trash", role: .destructive) {
-                uninstallBatch(checkedApps)
+                controller.uninstallBatch(controller.checkedApps)
             }
         } message: {
             Text("Selected applications and their associated support files will be moved to the Trash.")
@@ -195,17 +170,17 @@ struct UninstallerView: View {
                presenting: appPendingUninstall) { app in
             Button("Cancel", role: .cancel) { appPendingUninstall = nil }
             Button("Move to Trash", role: .destructive) {
-                let target = app; appPendingUninstall = nil; uninstall(target)
+                let target = app; appPendingUninstall = nil; controller.uninstall(target)
             }
         } message: { app in
             Text("\(app.name) and its associated files will be moved to the Trash. You can restore them from the Trash if needed.")
         }
         .alert("Uninstall",
-               isPresented: Binding(get: { uninstallError != nil },
-                                    set: { if !$0 { uninstallError = nil } })) {
-            Button("OK", role: .cancel) { uninstallError = nil }
+               isPresented: Binding(get: { controller.uninstallError != nil },
+                                    set: { if !$0 { controller.uninstallError = nil } })) {
+            Button("OK", role: .cancel) { controller.uninstallError = nil }
         } message: {
-            Text(uninstallError ?? "")
+            Text(controller.uninstallError ?? "")
         }
         .alert(
             "Reset \(appPendingReset?.name ?? "this app") to defaults?",
@@ -215,49 +190,33 @@ struct UninstallerView: View {
         ) { app in
             Button("Cancel", role: .cancel) { appPendingReset = nil }
             Button("Reset to Defaults", role: .destructive) {
-                let target = app; appPendingReset = nil; resetToDefaults(target)
+                let target = app; appPendingReset = nil; controller.resetToDefaults(target)
             }
         } message: { app in
-            let plan = AppReset.plan(app: app, associatedFiles: associatedFiles, selectedFiles: selectedFiles)
+            let plan = AppReset.plan(app: app, associatedFiles: controller.associatedFiles, selectedFiles: controller.selectedFiles)
             let count = plan?.items.count ?? 0
             let bytes = plan?.items.reduce(0 as UInt64) { $0 + $1.size } ?? 0
             Text("Caches, preferences, and saved state for \(app.name) (\(count) items, \(FileSizeFormatter.format(bytes))) will be moved to the Trash. The app stays installed. Quit the app first if it is running, or it may rewrite these files.")
         }
         .alert("Reset to Defaults",
-               isPresented: Binding(get: { resetError != nil },
-                                    set: { if !$0 { resetError = nil } })) {
-            Button("OK", role: .cancel) { resetError = nil }
+               isPresented: Binding(get: { controller.resetError != nil },
+                                    set: { if !$0 { controller.resetError = nil } })) {
+            Button("OK", role: .cancel) { controller.resetError = nil }
         } message: {
-            Text(resetError ?? "")
+            Text(controller.resetError ?? "")
         }
-    }
-
-    private var filteredApps: [AppInfo] {
-        var filtered = apps
-        switch filter {
-        case .all: break
-        case .unused: filtered = filtered.filter(\.isUnused)
-        case .thirdParty: filtered = filtered.filter { !$0.isAppleApp }
-        }
-        if !searchText.isEmpty {
-            filtered = filtered.filter {
-                $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.bundleIdentifier.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        return filtered
     }
 
     private var appList: some View {
         List {
-            ForEach(filteredApps) { app in
-                let isProtected = safetyGuard.isProtectedApp(app.bundleIdentifier)
+            ForEach(controller.filteredApps) { app in
+                let isProtected = controller.safetyGuard.isProtectedApp(app.bundleIdentifier)
                 HStack(spacing: 8) {
                     Toggle("", isOn: Binding(
-                        get: { checkedAppIDs.contains(app.id) },
+                        get: { controller.checkedAppIDs.contains(app.id) },
                         set: { on in
-                            if on { checkedAppIDs.insert(app.id) }
-                            else { checkedAppIDs.remove(app.id) }
+                            if on { controller.checkedAppIDs.insert(app.id) }
+                            else { controller.checkedAppIDs.remove(app.id) }
                         }
                     ))
                     .toggleStyle(.checkbox)
@@ -265,8 +224,8 @@ struct UninstallerView: View {
                     .disabled(isProtected)
 
                     Button {
-                        selectedApp = app
-                        loadAssociatedFiles(for: app)
+                        controller.selectedApp = app
+                        controller.loadAssociatedFiles(for: app)
                     } label: {
                         HStack(spacing: 10) {
                             Image(nsImage: NSWorkspace.shared.icon(forFile: app.path.path(percentEncoded: false)))
@@ -299,7 +258,7 @@ struct UninstallerView: View {
                 }
                 .padding(.vertical, 2)
                 .padding(.horizontal, 4)
-                .background(selectedApp?.id == app.id ? Color(nsColor: .systemBlue).opacity(0.12) : .clear)
+                .background(controller.selectedApp?.id == app.id ? Color(nsColor: .systemBlue).opacity(0.12) : .clear)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
@@ -322,16 +281,16 @@ struct UninstallerView: View {
                 }
                 Spacer()
 
-                if isUninstalling || isResetting {
+                if controller.isUninstalling || controller.isResetting {
                     ProgressView()
                         .controlSize(.small)
-                    Text(isResetting
+                    Text(controller.isResetting
                          ? String(localized: "Resetting…")
                          : String(localized: "Uninstalling…"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 } else {
-                    if safetyGuard.isProtectedApp(app.bundleIdentifier) {
+                    if controller.safetyGuard.isProtectedApp(app.bundleIdentifier) {
                         Text("Protected system app — can't be removed")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
@@ -340,6 +299,7 @@ struct UninstallerView: View {
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
                             .controlSize(.small)
+                            .disabled(controller.isLoadingFiles)
                     }
 
                     Button("Reset to Defaults") {
@@ -347,45 +307,45 @@ struct UninstallerView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(AppReset.plan(app: app, associatedFiles: associatedFiles, selectedFiles: selectedFiles) == nil)
+                    .disabled(AppReset.plan(app: app, associatedFiles: controller.associatedFiles, selectedFiles: controller.selectedFiles) == nil)
                     .help("Clears caches, preferences, and saved state. The app stays installed.")
                 }
             }
             .padding()
 
-            if isLoadingFiles {
+            if controller.isLoadingFiles {
                 Spacer()
                 ProgressView("Finding associated files...")
                     .tint(.secondary)
                     .font(.system(size: 12))
                 Spacer()
-            } else if !associatedFiles.isEmpty {
-                let totalSize = associatedFiles.reduce(0 as UInt64) { $0 + $1.size }
+            } else if !controller.associatedFiles.isEmpty {
+                let totalSize = controller.associatedFiles.reduce(0 as UInt64) { $0 + $1.size }
                 HStack {
-                    Text("\(associatedFiles.count) associated files (\(FileSizeFormatter.format(totalSize)))")
+                    Text("\(controller.associatedFiles.count) associated files (\(FileSizeFormatter.format(totalSize)))")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button("Select All") {
-                        selectedFiles = Set(associatedFiles.map(\.url))
+                        controller.selectedFiles = Set(controller.associatedFiles.map(\.url))
                     }
                     .buttonStyle(.borderless)
                     .font(.system(size: 11))
                     Button("None") {
-                        selectedFiles.removeAll()
+                        controller.selectedFiles.removeAll()
                     }
                     .buttonStyle(.borderless)
                     .font(.system(size: 11))
                 }
                 .padding(.horizontal)
 
-                List(associatedFiles) { file in
+                List(controller.associatedFiles) { file in
                     HStack {
                         Toggle("", isOn: Binding(
-                            get: { selectedFiles.contains(file.url) },
+                            get: { controller.selectedFiles.contains(file.url) },
                             set: { on in
-                                if on { selectedFiles.insert(file.url) }
-                                else { selectedFiles.remove(file.url) }
+                                if on { controller.selectedFiles.insert(file.url) }
+                                else { controller.selectedFiles.remove(file.url) }
                             }
                         ))
                         .toggleStyle(.checkbox)
@@ -417,126 +377,6 @@ struct UninstallerView: View {
                     .font(.system(size: 12))
                 Spacer()
             }
-        }
-    }
-
-    private func resetToDefaults(_ app: AppInfo) {
-        guard !isResetting, !isUninstalling else { return }
-        guard let plan = AppReset.plan(
-            app: app,
-            associatedFiles: associatedFiles,
-            selectedFiles: selectedFiles
-        ) else { return }
-
-        isResetting = true
-        Task {
-            let result = await CleanActions.executeUserClean(
-                items: plan.items,
-                selectedItems: plan.selection,
-                engine: appState.cleaningEngine
-            )
-            if !result.errors.isEmpty {
-                resetError = "Some items couldn't be reset for \(app.name) (\(result.errors.count)). Quit the app if it is running and try again."
-            }
-            loadAssociatedFiles(for: app)
-            isResetting = false
-        }
-    }
-
-    private func loadApps() async {
-        apps = await discovery.discoverApps()
-        checkedAppIDs = checkedAppIDs.intersection(Set(apps.map(\.id)))
-        isLoading = false
-        if let path = appState.pendingUninstallerAppPath {
-            selectPendingApp(path: path)
-        }
-    }
-
-    private func selectPendingApp(path: String) {
-        appState.pendingUninstallerAppPath = nil
-        guard let match = apps.first(where: {
-            $0.path.path(percentEncoded: false) == path
-        }) else { return }
-        selectedApp = match
-        loadAssociatedFiles(for: match)
-        filter = .all
-    }
-
-    private func loadAssociatedFiles(for app: AppInfo) {
-        isLoadingFiles = true
-        associatedFiles = []
-        Task {
-            let files = pathFinder.findAssociatedFiles(for: app)
-            associatedFiles = files
-            selectedFiles = Set(files.map(\.url))
-            isLoadingFiles = false
-        }
-    }
-
-    private func uninstall(_ app: AppInfo) {
-        guard !isUninstalling else { return }
-        guard let plan = AppUninstaller.plan(
-            app: app,
-            associatedFiles: associatedFiles,
-            selectedFiles: selectedFiles,
-            safetyGuard: safetyGuard
-        ) else {
-            uninstallError = "\(app.name) is a protected system app and can't be removed."
-            return
-        }
-
-        isUninstalling = true
-        Task {
-            let result = await CleanActions.executeUserClean(
-                items: plan.items,
-                selectedItems: plan.selection,
-                engine: appState.cleaningEngine
-            )
-            if !result.errors.isEmpty {
-                uninstallError = "Some items couldn't be removed while uninstalling \(app.name) (\(result.errors.count)). Check whether the app is still there and try again."
-            }
-            checkedAppIDs.remove(app.id)
-            await loadApps()
-            isUninstalling = false
-            selectedApp = nil
-            associatedFiles = []
-        }
-    }
-
-    private func uninstallBatch(_ targets: [AppInfo]) {
-        guard !isUninstalling, !targets.isEmpty else { return }
-        isUninstalling = true
-        Task {
-            var allItems: [FileItem] = []
-            var allSelection: Set<URL> = []
-            for app in targets {
-                let files = pathFinder.findAssociatedFiles(for: app)
-                let fileURLs = Set(files.map(\.url))
-                if let plan = AppUninstaller.plan(
-                    app: app,
-                    associatedFiles: files,
-                    selectedFiles: fileURLs,
-                    safetyGuard: safetyGuard
-                ) {
-                    allItems.append(contentsOf: plan.items)
-                    allSelection.formUnion(plan.selection)
-                }
-            }
-            if !allItems.isEmpty {
-                let result = await CleanActions.executeUserClean(
-                    items: allItems,
-                    selectedItems: allSelection,
-                    engine: appState.cleaningEngine
-                )
-                if !result.errors.isEmpty {
-                    uninstallError = "Some items couldn't be removed (\(result.errors.count))."
-                }
-            }
-            checkedAppIDs.removeAll()
-            await loadApps()
-            isUninstalling = false
-            selectedApp = nil
-            associatedFiles = []
         }
     }
 }

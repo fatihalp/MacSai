@@ -3,7 +3,7 @@ import AppKit
 import MacCleanKit
 
 struct FileHandlerView: View {
-    @StateObject private var viewModel = FileHandlerViewModel()
+    @State private var controller = FileHandlerController()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -13,11 +13,11 @@ struct FileHandlerView: View {
                     .foregroundStyle(.secondary)
                     .font(.system(size: 12))
                 TextField("Search file type or app...",
-                          text: $viewModel.searchText)
+                          text: $controller.searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
-                if !viewModel.searchText.isEmpty {
-                    Button(action: { viewModel.searchText = "" }) {
+                if !controller.searchText.isEmpty {
+                    Button(action: { controller.searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
@@ -26,15 +26,15 @@ struct FileHandlerView: View {
                 }
                 Spacer()
                 Button(action: {
-                    viewModel.loadBackups()
-                    viewModel.showRestoreSheet = true
+                    controller.loadBackups()
+                    controller.showRestoreSheet = true
                 }) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.borderless)
                 .help("Version history")
-                Button(action: { viewModel.loadHandlers() }) {
+                Button(action: { controller.loadHandlers() }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12))
                 }
@@ -46,13 +46,13 @@ struct FileHandlerView: View {
 
             Divider()
 
-            if viewModel.isLoading {
+            if controller.isLoading {
                 Spacer()
                 ProgressView()
                     .controlSize(.large)
                     .tint(.primary)
                 Spacer()
-            } else if viewModel.handlers.isEmpty {
+            } else if controller.handlers.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "doc.badge.gearshape")
@@ -63,7 +63,7 @@ struct FileHandlerView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-            } else if viewModel.filteredHandlers.isEmpty {
+            } else if controller.filteredHandlers.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
@@ -76,26 +76,26 @@ struct FileHandlerView: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(viewModel.filteredHandlers) { handler in
+                    ForEach(controller.filteredHandlers) { handler in
                         HandlerRowView(
                             handler: handler,
-                            appInfo: viewModel.getAppInfo(for: handler),
-                            onDelete: { viewModel.deleteHandler(handler) }
+                            appInfo: controller.getAppInfo(for: handler),
+                            onDelete: { controller.deleteHandler(handler) }
                         )
                     }
                 }
                 .listStyle(.inset)
             }
         }
-        .sheet(isPresented: $viewModel.showRestoreSheet) {
+        .sheet(isPresented: $controller.showRestoreSheet) {
             restoreSheet
         }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK") { viewModel.showError = false }
+        .alert("Error", isPresented: $controller.showError) {
+            Button("OK") { controller.showError = false }
         } message: {
-            Text(viewModel.errorMessage ?? "An unknown error occurred")
+            Text(controller.errorMessage ?? "An unknown error occurred")
         }
-        .onAppear { viewModel.loadHandlers() }
+        .onAppear { controller.loadHandlers() }
     }
 
     private var restoreSheet: some View {
@@ -104,7 +104,7 @@ struct FileHandlerView: View {
                 Text("Restore Version")
                     .font(.headline)
                 Spacer()
-                Button(action: { viewModel.showRestoreSheet = false }) {
+                Button(action: { controller.showRestoreSheet = false }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
@@ -114,7 +114,7 @@ struct FileHandlerView: View {
 
             Divider()
 
-            if viewModel.backups.isEmpty {
+            if controller.backups.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
                     Image(systemName: "clock.badge.questionmark")
@@ -128,11 +128,11 @@ struct FileHandlerView: View {
                 .frame(maxWidth: .infinity, minHeight: 200)
             } else {
                 List {
-                    ForEach(Array(viewModel.backups.enumerated()), id: \.offset) { _, url in
+                    ForEach(Array(controller.backups.enumerated()), id: \.offset) { _, url in
                         BackupRowView(
                             url: url,
-                            isRestoring: viewModel.isRestoring,
-                            onRestore: { viewModel.restoreBackup(from: url) }
+                            isRestoring: controller.isRestoring,
+                            onRestore: { controller.restoreBackup(from: url) }
                         )
                     }
                 }

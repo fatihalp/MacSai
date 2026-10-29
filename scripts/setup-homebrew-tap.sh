@@ -1,9 +1,4 @@
 #!/bin/bash
-# One-time setup: creates the homebrew-macsai tap repo and a workflow
-# that keeps it in sync with Casks/mac-sai.rb in this repo.
-#
-# Requires: gh CLI authenticated
-# Usage: bash scripts/setup-homebrew-tap.sh
 
 set -euo pipefail
 
@@ -12,7 +7,6 @@ TAP_REPO="homebrew-macsai"
 
 echo "=== Setting up Homebrew tap for ${GH_USER}/${TAP_REPO} ==="
 
-# Check if already exists
 if gh repo view "${GH_USER}/${TAP_REPO}" &>/dev/null; then
     echo "Tap repo ${GH_USER}/${TAP_REPO} already exists."
     exit 0

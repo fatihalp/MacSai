@@ -1,13 +1,27 @@
-import SwiftUI
+import Foundation
+import Observation
 import MacCleanKit
 
-@Observable
+@MainActor @Observable
 public final class AppState {
     var selectedCategory: SidebarCategory = .smartScan
     var selectedSidebarItem: SidebarItem? = .smartScan
-    var scanCoordinator = ScanCoordinator()
+    let scanCoordinator = ScanCoordinator()
     let cleaningEngine = CleaningEngine()
-    let scanResultsStore = ScanResultsStore()
+    @ObservationIgnored lazy var smartScanController = SmartScanController(coordinator: scanCoordinator, engine: cleaningEngine)
+    let systemJunkController = SystemJunkController()
+    @ObservationIgnored lazy var uninstallerController = UninstallerController(engine: cleaningEngine)
+    @ObservationIgnored lazy var unusedAppsController = UnusedAppsController(engine: cleaningEngine)
+    @ObservationIgnored lazy var extensionsController = ExtensionsController(engine: cleaningEngine)
+    @ObservationIgnored lazy var duplicatesController = DuplicatesController(engine: cleaningEngine)
+    @ObservationIgnored private var scanControllers: [ScanFeature: ScanController] = [:]
+
+    func scanController(for feature: ScanFeature) -> ScanController {
+        if let controller = scanControllers[feature] { return controller }
+        let controller = ScanController(module: feature.module, selectAll: feature.selectAll)
+        scanControllers[feature] = controller
+        return controller
+    }
 
     var pendingUninstallerAppPath: String?
 
@@ -69,5 +83,4 @@ public final class AppState {
             ShredderModule(),
         ])
     }
-
 }

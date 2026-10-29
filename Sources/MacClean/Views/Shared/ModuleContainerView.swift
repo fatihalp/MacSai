@@ -82,7 +82,9 @@ struct ModuleContainerView: View {
     @State private var showLargeSelectionConfirm = false
     @State private var showEmptyTrashConfirm = false
     @State private var showActivityLog = false
-    @State private var review: ReviewSelection?
+    @State private var reviewController = ReviewController()
+
+    private var review: ReviewSelection? { reviewController.selection }
 
     private var totalSelected: UInt64 {
         if resultsContent == nil, let review {
@@ -104,17 +106,6 @@ struct ModuleContainerView: View {
 
     private var resultsKey: String {
         fileListResultsSignature(sort: .sizeDescending, results: results)
-    }
-
-    private var inferredModuleID: String {
-        guard let first = results.first?.category else { return "module" }
-        switch first {
-        case .mailAttachments: return "mail_attachments"
-        case .trashBins: return "trash_bins"
-        case .malware: return "malware"
-        case .browserPrivacy: return "privacy"
-        default: return "module"
-        }
     }
 
     var body: some View {
@@ -140,9 +131,9 @@ struct ModuleContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .respondsToModuleShortcuts(
             onScan: onScan,
-            onClean: onClean,
+            onClean: requestClean,
             canScan: cleaning == nil && !isScanning && completion == nil,
-            canClean: cleaning == nil && completion == nil && !results.isEmpty && selectedCount > 0
+            canClean: cleaning == nil && !isScanning && completion == nil && !results.isEmpty && selectedCount > 0 && (resultsContent != nil || review != nil)
         )
     }
 
@@ -378,33 +369,7 @@ struct ModuleContainerView: View {
     }
 
     private func buildReviewSelection() async {
-        let currentResults = results
-        guard !currentResults.isEmpty else {
-            review = nil
-            return
-        }
-        let moduleID = inferredModuleID
-        let moduleName = title
-        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        let data = await Task.detached(priority: .userInitiated) {
-            ReviewDataBuilder.build(
-                modules: [ModuleScanResult(
-                    moduleID: moduleID,
-                    moduleName: moduleName,
-                    categories: currentResults,
-                    scanDuration: 0
-                )],
-                runningBundleIDs: running
-            )
-        }.value
-        if Task.isCancelled { return }
-        let newReview = ReviewSelection(data: data)
-        if !selectedItems.isEmpty {
-            newReview.applySelectedURLs(selectedItems)
-        } else {
-            selectedItems = data.selectedURLs(flags: newReview.snapshot())
-        }
-        review = newReview
+        await reviewController.prepare(results: results, moduleName: title, selectedItems: selectedItems)
     }
 
     private var cleanConfirmationAlerts: some ViewModifier {

@@ -7,7 +7,7 @@ final class ProjectJunkController {
     private(set) var rootURL: URL?
     private(set) var scannedRootsCount: Int = 0
     private(set) var rootRefused = false
-    var results: [ScanResult] = []
+    private(set) var results: [ScanResult] = []
     private(set) var items: [ProjectJunkItem] = []
     private(set) var gitStatuses: [String: GitRepoStatus] = [:]
     var selectedItems: Set<URL> = []
@@ -15,13 +15,13 @@ final class ProjectJunkController {
     private(set) var scanProgress: Double = 0
     private(set) var scanPhase = ""
     private(set) var scanComplete = false
-    var completion: CleanSummary?
-    var cleaning: CleaningEngine.Progress?
-
+    private(set) var completion: CleanSummary?
+    private(set) var cleaning: CleaningEngine.Progress?
     @ObservationIgnored private var isAccessingRoot = false
     @ObservationIgnored private var cleanTask: Task<Void, Never>?
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var scanGeneration = 0
+    @ObservationIgnored private var cleanGeneration = 0
     private let scanner = ProjectJunkScanner()
 
     static var findingPhase: String {
@@ -126,7 +126,11 @@ final class ProjectJunkController {
     }
 
     func clean(engine: CleaningEngine) {
+        guard !isScanning, cleaning == nil, !selectedItems.isEmpty else { return }
         let preCleanSelectedCount = selectedItems.count
+        let results = results
+        let selectedItems = selectedItems
+        let generation = cleanGeneration
         cleaning = CleaningEngine.Progress(
             totalItems: preCleanSelectedCount,
             processedItems: 0, removedSoFar: 0, freedBytesSoFar: 0
@@ -137,20 +141,22 @@ final class ProjectJunkController {
                 selectedItems: selectedItems,
                 engine: engine,
                 onProgress: { progress in
-                    Task { @MainActor in self.cleaning = progress }
+                    Task { @MainActor in
+                        guard generation == self.cleanGeneration, self.cleaning != nil else { return }
+                        self.cleaning = progress
+                    }
                 }
             )
+            guard generation == cleanGeneration else { return }
             cleaning = nil
-            completion = CleanSummary(
-                selectedCount: preCleanSelectedCount,
-                removedCount: result.removedCount,
-                freedBytes: result.freedBytes,
-                errorMessages: result.errors.map(\.error)
-            )
+            cleanTask = nil
+            completion = result.summary(selectedCount: preCleanSelectedCount)
         }
     }
 
     func reset() {
+        cleanGeneration &+= 1
+        cleanTask?.cancel()
         cancelScan()
         releaseRoot()
         rootURL = nil

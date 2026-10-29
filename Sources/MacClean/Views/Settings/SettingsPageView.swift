@@ -4,13 +4,7 @@ import ServiceManagement
 import MacCleanKit
 
 struct SettingsPageView: View {
-    enum UpdateUIState: Equatable {
-        case idle
-        case checking
-        case upToDate
-        case available(version: String, url: URL)
-        case failed(message: String)
-    }
+    @State private var controller = SettingsController()
 
     @AppStorage("showMenuBarWidget") private var showMenuBarWidget = true
     @AppStorage(MenuBarMetric.defaultsKey, store: SharedAppState.defaults) private var menuBarMetricRaw = MenuBarMetric.diskFree.rawValue
@@ -22,17 +16,6 @@ struct SettingsPageView: View {
     @AppStorage(Localization.defaultsKey, store: SharedAppState.defaults) private var appLanguage = "en"
     @State private var launcher = MenuBarLauncher.shared
     @State private var loginLauncher = LaunchAtLoginManager.shared
-    @State private var updateState: UpdateUIState = .idle
-    @State private var keptLanguages: Set<String> = []
-    @State private var selectable: [(name: String, lprojs: [String])] = []
-    @State private var languageSearch: String = ""
-    @State private var excludedFolders: [String] = FolderExclusionPreferences.paths
-    @State private var exclusionError: String?
-
-    private var filteredLanguages: [(name: String, lprojs: [String])] {
-        guard !languageSearch.isEmpty else { return selectable }
-        return selectable.filter { $0.name.localizedCaseInsensitiveContains(languageSearch) }
-    }
 
     var body: some View {
         Form {
@@ -48,18 +31,9 @@ struct SettingsPageView: View {
         .scrollContentBackground(.hidden)
         .frame(maxWidth: 680)
         .frame(maxWidth: .infinity)
-        .onAppear {
+        .task {
             launchAtLogin = loginLauncher.refreshStatus()
-            keptLanguages = LanguagePreferences.userKept
-            selectable = LanguagePreferences.selectableLanguages()
-            excludedFolders = FolderExclusionPreferences.paths
-            Task.detached(priority: .userInitiated) {
-                let found = LanguageScanner().discoverLproj(in: LanguageScanner.defaultRoots)
-                await MainActor.run {
-                    LanguagePreferences.discoveredLproj = found
-                    selectable = LanguagePreferences.selectableLanguages()
-                }
-            }
+            await controller.loadPreferences()
         }
     }
 
@@ -76,7 +50,7 @@ struct SettingsPageView: View {
                 Spacer()
                 updateControl
             }
-            if case .available(let version, let url) = updateState {
+            if case .available(let version, let url) = controller.updateState {
                 updateAvailableRow(version: version, url: url)
             }
             Toggle("Automatically check for updates",
@@ -96,9 +70,9 @@ struct SettingsPageView: View {
 
     @ViewBuilder
     private var updateControl: some View {
-        switch updateState {
+        switch controller.updateState {
         case .idle:
-            Button("Check for Updates") { startUpdateCheck() }
+            Button("Check for Updates") { controller.startUpdateCheck() }
         case .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -115,7 +89,7 @@ struct SettingsPageView: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Button("Retry") { startUpdateCheck() }
+                Button("Retry") { controller.startUpdateCheck() }
             }
         }
     }
@@ -149,22 +123,6 @@ struct SettingsPageView: View {
     }
 
     static let brewUpgradeCommand = "brew upgrade --cask mac-sai"
-
-    @MainActor
-    private func startUpdateCheck() {
-        updateState = .checking
-        Task {
-            let result = await UpdateChecker.check()
-            switch result {
-            case .upToDate:
-                updateState = .upToDate
-            case .updateAvailable(let version, let url):
-                updateState = .available(version: version, url: url)
-            case .failed(let message):
-                updateState = .failed(message: message)
-            }
-        }
-    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
@@ -262,8 +220,7 @@ struct SettingsPageView: View {
             }
             .pickerStyle(.segmented)
             .onChange(of: appLanguage) { _, newValue in
-                Localization.currentID = newValue
-                selectable = LanguagePreferences.selectableLanguages()
+                controller.setInterfaceLanguage(newValue)
             }
 
             Text("Changes apply immediately to the main window and menu-bar widget.")
@@ -305,33 +262,31 @@ struct SettingsPageView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if selectable.isEmpty {
+            if controller.selectable.isEmpty {
                 Text("Detecting installed languages…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                TextField("Search languages", text: $languageSearch)
+                TextField("Search languages", text: $controller.languageSearch)
                     .textFieldStyle(.roundedBorder)
 
-                if filteredLanguages.isEmpty {
-                    Text("No languages match “\(languageSearch)”.")
+                if controller.filteredLanguages.isEmpty {
+                    Text("No languages match “\(controller.languageSearch)”.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredLanguages, id: \.name) { lang in
+                        ForEach(controller.filteredLanguages, id: \.name) { lang in
 
                             HStack {
                                 Text(lang.name)
                                 Spacer()
                                 Toggle(lang.name, isOn: Binding(
-                                    get: { lang.lprojs.allSatisfy { keptLanguages.contains($0) } },
+                                    get: { lang.lprojs.allSatisfy { controller.keptLanguages.contains($0) } },
                                     set: { on in
-                                        if on { keptLanguages.formUnion(lang.lprojs) }
-                                        else { lang.lprojs.forEach { keptLanguages.remove($0) } }
-                                        LanguagePreferences.userKept = keptLanguages
+                                        controller.setLanguage(lang.lprojs, kept: on)
                                     }
                                 ))
                                 .toggleStyle(.switch)
@@ -355,12 +310,12 @@ struct SettingsPageView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            if excludedFolders.isEmpty {
+            if controller.excludedFolders.isEmpty {
                 Text("No folders excluded yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(excludedFolders, id: \.self) { path in
+                ForEach(controller.excludedFolders, id: \.self) { path in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(path)
                             .font(.system(.body, design: .monospaced))
@@ -368,9 +323,7 @@ struct SettingsPageView: View {
                             .textSelection(.enabled)
                         Spacer(minLength: 8)
                         Button("Remove", role: .destructive) {
-                            FolderExclusionPreferences.remove(path)
-                            excludedFolders = FolderExclusionPreferences.paths
-                            exclusionError = nil
+                            controller.removeExcludedFolder(path)
                         }
                         .buttonStyle(.borderless)
                     }
@@ -378,55 +331,14 @@ struct SettingsPageView: View {
             }
 
             Button("Add Folder…") {
-                addExcludedFolder()
+                controller.addExcludedFolder()
             }
 
-            if let exclusionError {
+            if let exclusionError = controller.exclusionError {
                 Label(exclusionError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.caption)
             }
-        }
-    }
-
-    private func addExcludedFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = String(localized: "Exclude")
-        panel.message = String(localized: "Choose a folder to exclude from cleanup.")
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        let path = url.path(percentEncoded: false)
-        if FolderExclusionPreferences.add(path) {
-            excludedFolders = FolderExclusionPreferences.paths
-            exclusionError = nil
-        } else {
-            exclusionError = rejectionMessage(for: path)
-        }
-    }
-
-    private func rejectionMessage(for path: String) -> String {
-        switch PathExclusion.candidateDecision(
-            for: path,
-            home: NSHomeDirectory(),
-            maxCount: FolderExclusionPreferences.defaultMaxCount,
-            existing: FolderExclusionPreferences.paths
-        ) {
-        case .allow:
-            return String(localized: "Couldn't add that folder.")
-        case .reject(.notAbsolute):
-            return String(localized: "Choose an absolute path.")
-        case .reject(.entireHome):
-            return String(localized: "You can't exclude your entire home folder.")
-        case .reject(.entireVolumesRoot):
-            return String(localized: "You can't exclude all of /Volumes.")
-        case .reject(.outsideAllowedRoots):
-            return String(localized: "Only folders under your home directory or /Volumes can be excluded.")
-        case .reject(.atCapacity):
-            return "You can exclude at most \(FolderExclusionPreferences.defaultMaxCount) folders."
-        case .reject(.alreadyCovered):
-            return String(localized: "That path is already covered by an existing exclusion.")
         }
     }
 

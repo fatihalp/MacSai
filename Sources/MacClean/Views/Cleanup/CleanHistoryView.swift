@@ -2,11 +2,8 @@ import SwiftUI
 import MacCleanKit
 
 struct CleanHistoryView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var sessions: [CleanHistorySession] = []
+    @State private var controller = CleanHistoryController()
     @State private var pendingRestore: CleanHistorySession?
-    @State private var lastSummary: CleanHistoryRestoreSummary?
-    @State private var isRestoring = false
     @State private var confirmClear = false
 
     var body: some View {
@@ -25,9 +22,9 @@ struct CleanHistoryView: View {
                 } label: {
                     Label("Clear History", systemImage: "trash.slash")
                 }
-                .disabled(sessions.isEmpty || isRestoring)
+                .disabled(controller.sessions.isEmpty || controller.isRestoring)
                 Button {
-                    sessions = CleanHistoryRecorder.load()
+                    Task { await controller.reload() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -36,7 +33,7 @@ struct CleanHistoryView: View {
             .padding(.vertical, 16)
 
             Group {
-                if sessions.isEmpty {
+                if controller.sessions.isEmpty {
                     VStack {
                         Spacer()
                         Text("No cleans to restore yet")
@@ -45,7 +42,7 @@ struct CleanHistoryView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(sessions) { session in
+                    List(controller.sessions) { session in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(session.date.formatted(date: .abbreviated, time: .shortened))
@@ -65,7 +62,7 @@ struct CleanHistoryView: View {
                                 pendingRestore = session
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(isRestoring)
+                            .disabled(controller.isRestoring)
                         }
                     }
                     .listStyle(.inset)
@@ -80,7 +77,7 @@ struct CleanHistoryView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .task { sessions = CleanHistoryRecorder.load() }
+        .task { await controller.reload() }
         .alert(
             String(localized: "Restore this clean?"),
             isPresented: Binding(
@@ -93,15 +90,7 @@ struct CleanHistoryView: View {
             Button("Restore") {
                 let target = session
                 pendingRestore = nil
-                isRestoring = true
-
-                Task {
-                    let summary = await Task.detached { CleanHistoryRecorder.restore(target) }.value
-                    let reloaded = await Task.detached { CleanHistoryRecorder.load() }.value
-                    lastSummary = summary
-                    sessions = reloaded
-                    isRestoring = false
-                }
+                Task { await controller.restore(target) }
             }
         } message: { session in
             Text(Self.restoreMessage(for: session))
@@ -109,13 +98,13 @@ struct CleanHistoryView: View {
         .alert(
             String(localized: "Restore finished"),
             isPresented: Binding(
-                get: { lastSummary != nil },
-                set: { if !$0 { lastSummary = nil } }
+                get: { controller.lastSummary != nil },
+                set: { if !$0 { controller.lastSummary = nil } }
             )
         ) {
-            Button("OK", role: .cancel) { lastSummary = nil }
+            Button("OK", role: .cancel) { controller.lastSummary = nil }
         } message: {
-            if let lastSummary {
+            if let lastSummary = controller.lastSummary {
                 Text(Self.summaryMessage(lastSummary))
             }
         }
@@ -125,8 +114,7 @@ struct CleanHistoryView: View {
         ) {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) {
-                CleanHistoryRecorder.clear()
-                sessions = []
+                controller.clear()
             }
         } message: {
             Text("This only forgets the restore list. Nothing in the Trash is touched, but these cleans can no longer be restored in one click.")

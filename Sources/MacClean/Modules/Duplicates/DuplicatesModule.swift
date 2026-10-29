@@ -50,38 +50,40 @@ public struct DuplicatesModule: ScanModule {
 
         let candidates = DuplicateDetection.sizeGroups(files)
 
-        let partialResults = await withTaskGroup(of: (key: String, item: FileItem)?.self) {
-            group -> [(key: String, item: FileItem)] in
-            for sizeGroup in candidates {
-                for item in sizeGroup {
-                    group.addTask {
-                        guard let hash = Self.partialHash(item.url) else { return nil }
-                        return (key: "\(item.size)-\(hash)", item: item)
-                    }
-                }
-            }
-            var out: [(key: String, item: FileItem)] = []
-            for await r in group { if let r { out.append(r) } }
-            return out
-        }
+        let partialResults = await hashFiles(candidates.flatMap { $0 }, full: false)
+        guard !Task.isCancelled else { return [] }
         let partialCandidates = DuplicateDetection.partialGroups(partialResults)
-
-        let fullResults = await withTaskGroup(of: (key: String, item: FileItem)?.self) {
-            group -> [(key: String, item: FileItem)] in
-            for partialGroup in partialCandidates {
-                for item in partialGroup {
-                    group.addTask {
-                        guard let hash = Self.fullHash(item.url) else { return nil }
-                        return (key: hash, item: item)
-                    }
-                }
-            }
-            var out: [(key: String, item: FileItem)] = []
-            for await r in group { if let r { out.append(r) } }
-            return out
-        }
+        let fullResults = await hashFiles(partialCandidates.flatMap { $0 }, full: true)
 
         return DuplicateDetection.fullGroupsAndDedupHardLinks(fullResults)
+    }
+
+    private func hashFiles(_ files: [FileItem], full: Bool) async -> [(key: String, item: FileItem)] {
+        let limit: Int = min(8, max(1, ProcessInfo.processInfo.activeProcessorCount))
+        return await withTaskGroup(of: (key: String, item: FileItem)?.self) { group in
+            var iterator = files.makeIterator()
+            var results: [(key: String, item: FileItem)] = []
+            func enqueue(_ item: FileItem) {
+                group.addTask {
+                    guard !Task.isCancelled else { return nil }
+                    let hash: String? = full ? Self.fullHash(item.url) : Self.partialHash(item.url)
+                    guard let hash else { return nil }
+                    return (key: full ? hash : "\(item.size)-\(hash)", item: item)
+                }
+            }
+            for _ in 0..<limit {
+                if let item = iterator.next() { enqueue(item) }
+            }
+            while let result = await group.next() {
+                if Task.isCancelled {
+                    group.cancelAll()
+                    return []
+                }
+                if let result { results.append(result) }
+                if let item = iterator.next() { enqueue(item) }
+            }
+            return results
+        }
     }
 
     static func partialHash(_ url: URL, bytes: Int = 4096) -> String? {

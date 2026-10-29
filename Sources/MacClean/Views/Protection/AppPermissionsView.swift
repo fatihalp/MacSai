@@ -4,14 +4,7 @@ import UniformTypeIdentifiers
 import MacCleanKit
 
 struct AppPermissionsView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var snapshot = AppPermissionsSnapshot(grants: [], listing: .loaded)
-    @State private var isLoading = true
-    private let client = AppPermissionsClient.live()
-
-    private var apps: [AppPermissionApp] {
-        AppPermissionOverview.apps(from: snapshot.grants)
-    }
+    @State private var controller = AppPermissionsController()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,18 +19,18 @@ struct AppPermissionsView: View {
                 }
                 Spacer()
                 Button {
-                    Task { await reload() }
+                    Task { await controller.reload() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading)
+                .disabled(controller.isLoading)
                 .help("Reload the permission list")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
             Group {
-                if isLoading {
+                if controller.isLoading {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
@@ -61,24 +54,24 @@ struct AppPermissionsView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .task { await reload() }
-        .respondsToModuleShortcuts(onScan: { Task { await reload() } }, canScan: !isLoading)
+        .task { await controller.reload() }
+        .respondsToModuleShortcuts(onScan: { Task { await controller.reload() } }, canScan: !controller.isLoading)
     }
 
     private var list: some View {
         List {
-            if snapshot.listing != .loaded {
+            if controller.snapshot.listing != .loaded {
                 listingBanner
             }
 
-            if snapshot.listing == .loaded {
-                if apps.isEmpty {
+            if controller.snapshot.listing == .loaded {
+                if controller.apps.isEmpty {
                     Text("No apps listed.")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.4))
                     .listRowSeparator(.hidden)
                 } else {
-                    ForEach(apps) { app in
+                    ForEach(controller.apps) { app in
                         appSection(app)
                     }
                 }
@@ -132,7 +125,7 @@ struct AppPermissionsView: View {
             }
             Spacer()
             Button("Open in System Settings") {
-                client.openSettings(for: grant.permission)
+                controller.client.openSettings(for: grant.permission)
             }
             .buttonStyle(.borderless)
         }
@@ -143,7 +136,7 @@ struct AppPermissionsView: View {
         Section {
             ForEach(PrivacyPermission.allCases) { permission in
                 Button {
-                    client.openSettings(for: permission)
+                    controller.client.openSettings(for: permission)
                 } label: {
                     HStack {
                         Label(permissionTitle(permission), systemImage: permissionIcon(permission))
@@ -169,21 +162,21 @@ struct AppPermissionsView: View {
     private var listingBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(
-                snapshot.listing == .needsFullDiskAccess
+                controller.snapshot.listing == .needsFullDiskAccess
                     ? String(localized: "Full Disk Access needed to list apps")
                     : String(localized: "Couldn't read the permission database")
             )
             .font(.system(size: 13, weight: .semibold))
             Text(
-                snapshot.listing == .needsFullDiskAccess
+                controller.snapshot.listing == .needsFullDiskAccess
                     ? "macOS is blocking the by-app overview. Grant \(MCConstants.appName) Full Disk Access, then refresh. The buttons below still open System Settings."
                     : String(localized: "This app can't list which apps hold which grants. You can still open System Settings with the buttons below.")
             )
             .font(.system(size: 12))
             .foregroundStyle(.primary.opacity(0.7))
-            if snapshot.listing == .needsFullDiskAccess {
+            if controller.snapshot.listing == .needsFullDiskAccess {
                 Button("Open in System Settings") {
-                    client.openFullDiskAccessSettings()
+                    controller.client.openFullDiskAccessSettings()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.primary)
@@ -191,12 +184,6 @@ struct AppPermissionsView: View {
             }
         }
         .padding(.vertical, 6)
-    }
-
-    private func reload() async {
-        isLoading = true
-        snapshot = await client.load()
-        isLoading = false
     }
 
     private func grantCountLabel(_ count: Int) -> String {

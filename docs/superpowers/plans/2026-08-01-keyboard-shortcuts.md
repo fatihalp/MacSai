@@ -1,3 +1,5 @@
+> Historical design note. See [the current architecture](../../ARCHITECTURE.md) and [contribution guide](../../../CONTRIBUTING.md) for the active structure and verification commands.
+
 # Keyboard Shortcuts (#9) Implementation Plan
 
 > **For agentic workers:** Use TDD. One feature per PR.

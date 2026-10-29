@@ -2,73 +2,57 @@ import SwiftUI
 import MacCleanKit
 
 struct DuplicatesView: View {
-    @Environment(AppState.self) private var appState
-    @State private var results: [ScanResult] = []
-
-    @State private var displayGroups: [DuplicateDisplayGroup] = []
+    @Bindable var controller: DuplicatesController
 
     @State private var expandedGroups: Set<UUID> = []
-    @State private var selectedItems: Set<URL> = []
-    @State private var isScanning = false
-    @State private var scanProgress: Double = 0
-    @State private var scanPhase = ""
-    @State private var scanComplete = false
-    @State private var completion: CleanSummary?
-    @State private var cleaning: CleaningEngine.Progress?
-    @State private var cleanTask: Task<Void, Never>?
-
-    @State private var scanTask: Task<Void, Never>?
-    @State private var scanTimerTask: Task<Void, Never>?
-    @State private var elapsedSeconds: Int = 0
 
     @State private var actionMode: DuplicatesActionMode = .remove
     @State private var consolidateConfirm = false
-    @State private var consolidateTask: Task<Void, Never>?
 
     @State private var consolidateEstimate: UInt64 = 0
 
     var body: some View {
         Group {
-            if isScanning {
+            if controller.isScanning {
                 scanningView
-            } else if scanComplete && results.isEmpty {
+            } else if controller.scanComplete && controller.results.isEmpty {
                 ModuleContainerView(
                     title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
                     emptyMessage: String(localized: "No duplicates found"),
-                    results: results,
-                    selectedItems: $selectedItems,
+                    results: controller.results,
+                    selectedItems: $controller.selectedItems,
                     isScanning: false,
                     scanComplete: true,
                     completion: nil,
-                    cleaning: cleaning,
-                    onScan: scan, onClean: clean,
-                    onCancelClean: { cleanTask?.cancel() },
+                    cleaning: controller.cleaning,
+                    onScan: controller.scan, onClean: controller.clean,
+                    onCancelClean: { controller.cancelCleaning() },
                     onReset: reset
                 )
-            } else if !results.isEmpty {
+            } else if !controller.results.isEmpty {
                 ModuleContainerView(
                     title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
-                    results: results,
-                    selectedItems: $selectedItems,
+                    results: controller.results,
+                    selectedItems: $controller.selectedItems,
                     isScanning: false,
-                    completion: completion,
-                    cleaning: cleaning,
-                    onScan: scan,
+                    completion: controller.completion,
+                    cleaning: controller.cleaning,
+                    onScan: controller.scan,
                     onClean: {
                         if actionMode == .consolidate {
 
                             consolidateEstimate = DuplicatesConsolidation.estimatedReclaim(
-                                from: displayGroups, selection: selectedItems)
+                                from: controller.displayGroups, selection: controller.selectedItems)
                             consolidateConfirm = true
                         } else {
-                            clean()
+                            controller.clean()
                         }
                     },
-                    onCancelClean: { cleanTask?.cancel() },
+                    onCancelClean: { controller.cancelCleaning() },
                     onReset: reset,
                     resultsContent: {
                         AnyView(
@@ -92,8 +76,8 @@ struct DuplicatesView: View {
                                     .padding(.horizontal, 20)
 
                                 DuplicateGroupsList(
-                                    groups: displayGroups,
-                                    selectedItems: $selectedItems,
+                                    groups: controller.displayGroups,
+                                    selectedItems: $controller.selectedItems,
                                     expanded: $expandedGroups
                                 )
                             }
@@ -103,18 +87,18 @@ struct DuplicatesView: View {
                         ? String(localized: "Consolidate")
                         : nil
                 )
-            } else if completion != nil {
+            } else if controller.completion != nil {
                 ModuleContainerView(
                     title: String(localized: "Duplicates"),
                     subtitle: "",
                     theme: .files,
                     results: [],
-                    selectedItems: $selectedItems,
+                    selectedItems: $controller.selectedItems,
                     isScanning: false,
-                    completion: completion,
-                    cleaning: cleaning,
-                    onScan: scan, onClean: clean,
-                    onCancelClean: { cleanTask?.cancel() },
+                    completion: controller.completion,
+                    cleaning: controller.cleaning,
+                    onScan: controller.scan, onClean: controller.clean,
+                    onCancelClean: { controller.cancelCleaning() },
                     onReset: reset
                 )
             } else {
@@ -124,15 +108,15 @@ struct DuplicatesView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         .respondsToModuleShortcuts(
-            onScan: scan,
-            canScan: !isScanning && cleaning == nil && completion == nil && results.isEmpty && !scanComplete,
+            onScan: controller.scan,
+            canScan: !controller.isScanning && controller.cleaning == nil && controller.completion == nil && controller.results.isEmpty && !controller.scanComplete,
             canClean: false
         )
         .confirmationDialog(
             String(localized: "Consolidate selected copies?"),
             isPresented: $consolidateConfirm, titleVisibility: .visible
         ) {
-            Button("Consolidate") { consolidate() }
+            Button("Consolidate") { controller.consolidate() }
             Button("Cancel", role: .cancel) {}
         } message: {
 
@@ -167,7 +151,7 @@ struct DuplicatesView: View {
             .background(.primary.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            ScanButton(title: "Scan", subtitle: "Duplicates", theme: .files, action: scan)
+            ScanButton(title: "Scan", subtitle: "Duplicates", theme: .files, action: controller.scan)
 
             Spacer()
         }
@@ -183,13 +167,13 @@ struct DuplicatesView: View {
                 .scaleEffect(1.4)
 
             VStack(spacing: 6) {
-                Text(scanPhase)
+                Text(controller.scanPhase)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .contentTransition(.interpolate)
-                    .animation(.easeInOut(duration: 0.2), value: scanPhase)
+                    .animation(.easeInOut(duration: 0.2), value: controller.scanPhase)
 
-                Text("Elapsed: \(formatElapsed(elapsedSeconds))")
+                Text("Elapsed: \(formatElapsed(controller.elapsedSeconds))")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.primary.opacity(0.6))
             }
@@ -200,7 +184,7 @@ struct DuplicatesView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            Button("Cancel") { cancelScan() }
+            Button("Cancel") { controller.cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -215,140 +199,10 @@ struct DuplicatesView: View {
         return String(format: "%d:%02d", m, s)
     }
 
-    private func scan() {
-        isScanning = true
-        scanComplete = false
-        scanProgress = 0
-        elapsedSeconds = 0
-        scanPhase = String(localized: "Scanning home folder...")
-
-        scanTask?.cancel()
-        scanTimerTask?.cancel()
-
-        scanTimerTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { return }
-                elapsedSeconds += 1
-            }
-        }
-
-        scanTask = Task {
-            scanPhase = String(localized: "Scanning home folder...")
-            try? await Task.sleep(for: .milliseconds(400))
-            if Task.isCancelled { return }
-
-            scanPhase = String(localized: "Grouping files by size...")
-            try? await Task.sleep(for: .milliseconds(400))
-            if Task.isCancelled { return }
-
-            scanPhase = String(localized: "Hashing candidate files in parallel...")
-
-            let module = DuplicatesModule()
-            let groups = await module.scanDisplayGroups()
-            if Task.isCancelled { return }
-
-            scanPhase = String(localized: "Finalizing...")
-            try? await Task.sleep(for: .milliseconds(300))
-            if Task.isCancelled { return }
-
-            scanTimerTask?.cancel()
-            displayGroups = groups
-            expandedGroups = []
-
-            let removable = groups.flatMap(\.duplicates)
-            results = removable.isEmpty
-                ? []
-                : [ScanResult(category: .duplicates, items: removable, autoSelect: false)]
-
-            selectedItems = Set(removable.map(\.url))
-            isScanning = false
-            scanComplete = true
-            scanTask = nil
-            scanTimerTask = nil
-        }
-    }
-
-    private func cancelScan() {
-        scanTask?.cancel()
-        scanTimerTask?.cancel()
-        scanTask = nil
-        scanTimerTask = nil
-        isScanning = false
-        scanComplete = false
-        scanProgress = 0
-        elapsedSeconds = 0
-        scanPhase = ""
-    }
-
-    private func clean() {
-        let preCleanSelectedCount = selectedItems.count
-        cleaning = CleaningEngine.Progress(
-            totalItems: preCleanSelectedCount,
-            processedItems: 0, removedSoFar: 0, freedBytesSoFar: 0
-        )
-        cleanTask = Task {
-            let result = await CleanActions.executeUserClean(
-                results: results,
-                selectedItems: selectedItems,
-                engine: appState.cleaningEngine,
-                onProgress: { progress in
-                    Task { @MainActor in cleaning = progress }
-                }
-            )
-            cleaning = nil
-            completion = CleanSummary(
-                selectedCount: preCleanSelectedCount,
-                removedCount: result.removedCount,
-                freedBytes: result.freedBytes,
-                errorMessages: result.errors.map(\.error)
-            )
-        }
-    }
-
-    private func consolidate() {
-        let groups = DuplicatesConsolidation.groups(from: displayGroups, selection: selectedItems)
-        let planned = groups.reduce(0) { $0 + $1.copies.count }
-        cleaning = CleaningEngine.Progress(
-            totalItems: planned,
-            processedItems: 0, removedSoFar: 0, freedBytesSoFar: 0
-        )
-        consolidateTask?.cancel()
-        consolidateTask = Task {
-            let summary = await Task.detached { FileConsolidator.consolidate(groups: groups) }.value
-            cleaning = nil
-            completion = CleanSummary(
-                selectedCount: summary.consolidatedCount + summary.skipped.count + summary.failed.count,
-                removedCount: summary.consolidatedCount,
-                freedBytes: summary.reclaimedBytes,
-                errorMessages: summary.failed.map(\.message)
-                    + summary.skipped.map { "\($0.url.lastPathComponent): \(skipLabel($0.reason))" }
-            )
-        }
-    }
-
-    private func skipLabel(_ reason: SkipReason) -> String {
-        switch reason {
-        case .contentChanged: String(localized: "content changed")
-        case .notSameVolume: String(localized: "different volume")
-        case .cloningUnsupported: String(localized: "not an APFS volume")
-        case .notRegularFile: String(localized: "not a regular file")
-        case .notWritable: String(localized: "not writable")
-        case .protectedPath: String(localized: "protected path")
-        }
-    }
-
     private func reset() {
-        scanTask?.cancel()
-        scanTimerTask?.cancel()
-        scanTask = nil
-        scanTimerTask = nil
-        consolidateTask?.cancel()
-        consolidateTask = nil
+        expandedGroups = []
         consolidateEstimate = 0
         actionMode = .remove
-        results = []; displayGroups = []; expandedGroups = []; selectedItems = []
-        completion = nil; cleaning = nil; cleanTask = nil
-        scanComplete = false; elapsedSeconds = 0; isScanning = false
+        controller.reset()
     }
 }

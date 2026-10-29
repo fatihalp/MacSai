@@ -1,3 +1,5 @@
+> Historical design note. See [the current architecture](../../ARCHITECTURE.md) and [contribution guide](../../../CONTRIBUTING.md) for the active structure and verification commands.
+
 # Menu-bar widget persist (#138)
 
 Date: 2026-08-26

@@ -1,3 +1,5 @@
+> Historical design note. See [the current architecture](../../ARCHITECTURE.md) and [contribution guide](../../../CONTRIBUTING.md) for the active structure and verification commands.
+
 # Duplicate Consolidation (DiskDedupe-style) Design
 
 Issue: #65. Reclaim space from duplicate groups **without deleting any copy** by

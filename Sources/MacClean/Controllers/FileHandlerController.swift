@@ -1,20 +1,24 @@
 import Foundation
 import AppKit
-import SwiftUI
+import Observation
 import MacCleanKit
 
-@MainActor
-public final class FileHandlerViewModel: ObservableObject {
-    @Published public var handlers: [HandlerEntry] = []
-    @Published public var isLoading = false
-    @Published public var searchText = ""
-    @Published public var errorMessage: String?
-    @Published public var showError = false
-    @Published public var backups: [URL] = []
-    @Published public var showRestoreSheet = false
-    @Published public var isRestoring = false
+@MainActor @Observable
+public final class FileHandlerController {
+    public private(set) var handlers: [HandlerEntry] = []
+    public private(set) var isLoading = false
+    public var searchText = ""
+    public var errorMessage: String?
+    public var showError = false
+    public private(set) var backups: [URL] = []
+    public var showRestoreSheet = false
+    public private(set) var isRestoring = false
 
-    private let service = LaunchServicesService.shared
+    private let service: LaunchServicesService
+
+    public init(service: LaunchServicesService = .shared) {
+        self.service = service
+    }
 
     public var filteredHandlers: [HandlerEntry] {
         if searchText.isEmpty { return handlers }
@@ -31,17 +35,19 @@ public final class FileHandlerViewModel: ObservableObject {
     public func loadHandlers() {
         isLoading = true
 
+        let service = service
         Task {
-            let loaded = await Task.detached { LaunchServicesService.shared.loadHandlers() }.value
+            let loaded = await Task.detached { service.loadHandlers() }.value
             handlers = loaded
             isLoading = false
         }
     }
 
     public func deleteHandler(_ handler: HandlerEntry) {
+        let service = service
         Task {
             do {
-                try await Task.detached { try LaunchServicesService.shared.deleteHandler(handler) }.value
+                try await Task.detached { try service.deleteHandler(handler) }.value
                 loadHandlers()
             } catch {
                 errorMessage = "Delete failed: \(error.localizedDescription)"
@@ -56,9 +62,10 @@ public final class FileHandlerViewModel: ObservableObject {
 
     public func restoreBackup(from url: URL) {
         isRestoring = true
+        let service = service
         Task {
             do {
-                try await Task.detached { try LaunchServicesService.shared.restoreBackup(from: url) }.value
+                try await Task.detached { try service.restoreBackup(from: url) }.value
                 isRestoring = false
                 showRestoreSheet = false
                 loadHandlers()

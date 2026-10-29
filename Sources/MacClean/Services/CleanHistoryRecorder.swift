@@ -3,12 +3,8 @@ import MacCleanKit
 
 public enum CleanHistoryRecorder {
 
-    nonisolated(unsafe) public static var fileURL: URL = NSClassFromString("XCTestCase") != nil
-        ? FileManager.default.temporaryDirectory
-            .appending(path: "macsai-test-clean-history-\(ProcessInfo.processInfo.processIdentifier).json")
-        : MCConstants.cleanHistoryFile
-
-    nonisolated(unsafe) public static var trashRoot: URL = MCConstants.userTrash
+    public static let fileURL = MCConstants.cleanHistoryFile
+    public static let trashRoot = MCConstants.userTrash
 
     private static let lock = NSLock()
 

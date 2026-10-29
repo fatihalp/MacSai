@@ -2,17 +2,9 @@ import SwiftUI
 import MacCleanKit
 
 struct MaintenanceView: View {
-    @State private var taskStates: [MaintenanceTask: TaskState] = [:]
-    @State private var executor = MaintenanceExecutor()
+    @State private var controller = MaintenanceController()
 
     @State private var taskAwaitingConfirmation: MaintenanceTask?
-
-    enum TaskState {
-        case idle
-        case running
-        case completed(String)
-        case failed(String)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +19,7 @@ struct MaintenanceView: View {
                 }
                 Spacer()
 
-                Button("Run Safe Tasks") { runSafeTasks() }
+                Button("Run Safe Tasks") { controller.runSafeTasks() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.regular)
@@ -59,7 +51,7 @@ struct MaintenanceView: View {
             Button("Run Anyway", role: .destructive) {
                 let captured = task
                 taskAwaitingConfirmation = nil
-                runTask(captured)
+                controller.runTask(captured)
             }
         } message: { task in
             Text(task.sideEffects)
@@ -92,7 +84,7 @@ struct MaintenanceView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 3))
                     }
                 }
-                if case .failed(let message) = taskStates[task] {
+                if case .failed(let message) = controller.taskStates[task] {
                     Text(message)
                         .font(.system(size: 11))
                         .foregroundStyle(Color.orange.opacity(0.8))
@@ -121,7 +113,7 @@ struct MaintenanceView: View {
                                      : Color(nsColor: .systemBlue))
             }
             .buttonStyle(.plain)
-            .disabled(isRunning(task))
+            .disabled(controller.isRunning(task))
             .help(task.severity == .advanced
                   ? String(localized: "Has multi-hour side effects — opens a confirmation")
                   : String(localized: "Run this task"))
@@ -138,7 +130,7 @@ struct MaintenanceView: View {
 
     @ViewBuilder
     private func statusView(for task: MaintenanceTask) -> some View {
-        switch taskStates[task] {
+        switch controller.taskStates[task] {
         case .running:
             ProgressView()
                 .controlSize(.small)
@@ -155,40 +147,12 @@ struct MaintenanceView: View {
         }
     }
 
-    private func isRunning(_ task: MaintenanceTask) -> Bool {
-        if case .running = taskStates[task] { return true }
-        return false
-    }
-
     private func didTapRun(_ task: MaintenanceTask) {
         switch task.severity {
         case .safe:
-            runTask(task)
+            controller.runTask(task)
         case .advanced:
             taskAwaitingConfirmation = task
-        }
-    }
-
-    private func executeAndStore(_ task: MaintenanceTask) async {
-        taskStates[task] = .running
-        let result = await executor.execute(task)
-        if result.success {
-            taskStates[task] = .completed(result.output)
-        } else {
-            taskStates[task] = .failed(result.error ?? String(localized: "Unknown error"))
-        }
-    }
-
-    private func runTask(_ task: MaintenanceTask) {
-        Task { await executeAndStore(task) }
-    }
-
-    private func runSafeTasks() {
-        let safeTasks = MaintenanceTask.allCases.filter { $0.severity == .safe }
-        Task {
-            for task in safeTasks {
-                await executeAndStore(task)
-            }
         }
     }
 }

@@ -1,10 +1,5 @@
 name: Verify signing secrets
 
-# Read-only check that the signing + notarization secrets actually work.
-# Imports the Developer ID cert, confirms it matches APPLE_DEVELOPER_ID, and
-# makes one authenticated notarytool call. Builds nothing, releases nothing,
-# and tears the keychain down afterwards. Run it from the Actions tab before
-# trusting a real release.
 on:
   workflow_dispatch:
 
@@ -61,8 +56,6 @@ jobs:
             --issuer "$ASC_ISSUER_ID" \
             --keychain "$RUNNER_TEMP/verify.keychain-db"
           rm -f "$KEY_PATH"
-          # `history` is a real authenticated API call; it succeeds only if the
-          # key id, issuer, and .p8 are all valid.
           xcrun notarytool history --keychain-profile "MacSai" | head -20
           echo "OK: notary credentials authenticated"
 

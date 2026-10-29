@@ -1,3 +1,5 @@
+> Historical design note. See [the current architecture](../../ARCHITECTURE.md) and [contribution guide](../../../CONTRIBUTING.md) for the active structure and verification commands.
+
 # Automatic update checker with notification popup
 
 Date: 2026-06-18

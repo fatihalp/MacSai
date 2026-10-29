@@ -4,27 +4,8 @@ import MacCleanKit
 
 struct UnusedAppsView: View {
     @Environment(AppState.self) private var appState
-    @State private var horizon: UnusedAppHorizon = .sixMonths
-    @State private var records: [UnusedAppRecord] = []
-    @State private var selectedPaths: Set<String> = []
-    @State private var isLoading = true
-    @State private var isUninstalling = false
+    @Bindable var controller: UnusedAppsController
     @State private var showBatchConfirm = false
-    @State private var loadGeneration = 0
-
-    private let discovery = AppDiscovery()
-    private let pathFinder = AppPathFinder()
-    private let safetyGuard = SafetyGuard()
-
-    private var apps: [UnusedAppRecord] { UnusedApps.unused(from: records, horizon: horizon) }
-
-    private var selectedApps: [UnusedAppRecord] {
-        apps.filter { selectedPaths.contains($0.path) }
-    }
-
-    private var selectedTotalBytes: UInt64 {
-        selectedApps.reduce(0) { $0 + $1.totalBytes }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,23 +18,23 @@ struct UnusedAppsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if !isLoading && !apps.isEmpty {
+                if !controller.isLoading && !controller.apps.isEmpty {
                     Button("Select All") {
-                        selectedPaths = Set(apps.map(\.path))
+                        controller.selectedPaths = Set(controller.apps.map(\.path))
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .keyboardShortcut("a", modifiers: .command)
 
                     Button("Deselect All") {
-                        selectedPaths.removeAll()
+                        controller.selectedPaths.removeAll()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(selectedPaths.isEmpty)
+                    .disabled(controller.selectedPaths.isEmpty)
                     .keyboardShortcut("a", modifiers: [.command, .option])
                 }
-                Picker("Horizon", selection: $horizon) {
+                Picker("Horizon", selection: $controller.horizon) {
                     ForEach(UnusedAppHorizon.allCases) { h in
                         Text(h.label).tag(h)
                     }
@@ -61,27 +42,27 @@ struct UnusedAppsView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 240)
                 Button {
-                    Task { await reload() }
+                    Task { await controller.reload() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading)
+                .disabled(controller.isLoading)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
             VStack(spacing: 0) {
-                if isLoading || isUninstalling {
+                if controller.isLoading || controller.isUninstalling {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView().controlSize(.large)
-                        Text(isUninstalling ? "Uninstalling…" : "Looking for unused apps…")
+                        Text(controller.isUninstalling ? "Uninstalling…" : "Looking for unused apps…")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if UnusedApps.usageDataUnavailable(in: records) {
+                } else if UnusedApps.usageDataUnavailable(in: controller.records) {
                     VStack(spacing: 8) {
                         Spacer()
                         Text("Spotlight has no usage history for your apps")
@@ -92,7 +73,7 @@ struct UnusedAppsView: View {
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if apps.isEmpty {
+                } else if controller.apps.isEmpty {
                     VStack {
                         Spacer()
                         Text("No unused apps in this window")
@@ -101,13 +82,13 @@ struct UnusedAppsView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(apps) { app in
+                    List(controller.apps) { app in
                         HStack(spacing: 12) {
                             Toggle("", isOn: Binding(
-                                get: { selectedPaths.contains(app.path) },
+                                get: { controller.selectedPaths.contains(app.path) },
                                 set: { on in
-                                    if on { selectedPaths.insert(app.path) }
-                                    else { selectedPaths.remove(app.path) }
+                                    if on { controller.selectedPaths.insert(app.path) }
+                                    else { controller.selectedPaths.remove(app.path) }
                                 }
                             ))
                             .toggleStyle(.checkbox)
@@ -147,18 +128,18 @@ struct UnusedAppsView: View {
                     .listStyle(.inset)
                 }
 
-                if !selectedApps.isEmpty && !isLoading && !isUninstalling {
+                if !controller.selectedApps.isEmpty && !controller.isLoading && !controller.isUninstalling {
                     Divider()
                     HStack(spacing: 12) {
-                        Text("\(selectedApps.count) app\(selectedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(selectedTotalBytes))")
+                        Text("\(controller.selectedApps.count) app\(controller.selectedApps.count == 1 ? "" : "s") selected · \(FileSizeFormatter.format(controller.selectedTotalBytes))")
                             .font(.system(size: 12.5, weight: .medium))
                         Spacer()
                         Button("Deselect All") {
-                            selectedPaths.removeAll()
+                            controller.selectedPaths.removeAll()
                         }
                         .buttonStyle(.bordered)
 
-                        Button("Move to Trash (\(selectedApps.count))") {
+                        Button("Move to Trash (\(controller.selectedApps.count))") {
                             showBatchConfirm = true
                         }
                         .buttonStyle(.borderedProminent)
@@ -179,18 +160,18 @@ struct UnusedAppsView: View {
             .padding(.bottom, 20)
         }
         .background(Color.white)
-        .task { await reload() }
+        .task { await controller.reload() }
         .respondsToModuleShortcuts(
-            onScan: { Task { await reload() } },
+            onScan: { Task { await controller.reload() } },
             onClean: { showBatchConfirm = true },
-            canScan: !isLoading && !isUninstalling,
-            canClean: !selectedApps.isEmpty
+            canScan: !controller.isLoading && !controller.isUninstalling,
+            canClean: !controller.selectedApps.isEmpty
         )
-        .alert("Move \(selectedApps.count) app\(selectedApps.count == 1 ? "" : "s") to the Trash?",
+        .alert("Move \(controller.selectedApps.count) app\(controller.selectedApps.count == 1 ? "" : "s") to the Trash?",
                isPresented: $showBatchConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Move to Trash", role: .destructive) {
-                uninstallSelectedApps()
+                controller.uninstallSelectedApps()
             }
         } message: {
             Text("Selected unused applications and their associated support files will be moved to the Trash.")
@@ -208,55 +189,5 @@ struct UnusedAppsView: View {
         let lastLabel = String(localized: "Last opened")
         let supportLabel = String(localized: "Support files")
         return "\(lastLabel) \(last) · \(supportLabel) \(support)"
-    }
-
-    private func reload() async {
-        loadGeneration &+= 1
-        let generation = loadGeneration
-        isLoading = true
-        let running = Set(NSWorkspace.shared.runningApplications.compactMap {
-            $0.bundleURL?.path(percentEncoded: false)
-        })
-        let listed = await Task.detached {
-            await UnusedAppsClient().records(runningAppPaths: running)
-        }.value
-        guard generation == loadGeneration else { return }
-        records = listed
-        selectedPaths = selectedPaths.intersection(Set(listed.map(\.path)))
-        isLoading = false
-    }
-
-    private func uninstallSelectedApps() {
-        let pathsToRemove = selectedPaths
-        guard !pathsToRemove.isEmpty, !isUninstalling else { return }
-        isUninstalling = true
-        Task {
-            let discovered = await discovery.discoverApps()
-            var allItems: [FileItem] = []
-            var allSelection: Set<URL> = []
-            for app in discovered where pathsToRemove.contains(app.path.path(percentEncoded: false)) {
-                let files = pathFinder.findAssociatedFiles(for: app)
-                let fileURLs = Set(files.map(\.url))
-                if let plan = AppUninstaller.plan(
-                    app: app,
-                    associatedFiles: files,
-                    selectedFiles: fileURLs,
-                    safetyGuard: safetyGuard
-                ) {
-                    allItems.append(contentsOf: plan.items)
-                    allSelection.formUnion(plan.selection)
-                }
-            }
-            if !allItems.isEmpty {
-                _ = await CleanActions.executeUserClean(
-                    items: allItems,
-                    selectedItems: allSelection,
-                    engine: appState.cleaningEngine
-                )
-            }
-            selectedPaths.removeAll()
-            isUninstalling = false
-            await reload()
-        }
     }
 }

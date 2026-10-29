@@ -1,28 +1,9 @@
 import Foundation
+import Observation
 import MacCleanKit
 
-public protocol ScanModule: Sendable {
-    var id: String { get }
-    var name: String { get }
-    var category: ModuleCategory { get }
-    var includedInSmartScan: Bool { get }
-    func scan() async -> [ScanResult]
-}
-
-public extension ScanModule {
-    var includedInSmartScan: Bool { true }
-}
-
-public enum ModuleCategory: String, CaseIterable, Sendable {
-    case cleanup = "清理"
-    case protection = "防护"
-    case performance = "性能"
-    case applications = "应用"
-    case files = "文件"
-}
-
-@Observable
-public final class ScanCoordinator: @unchecked Sendable {
+@MainActor @Observable
+public final class ScanCoordinator {
     public enum ScanState: Sendable {
         case idle
         case scanning(progress: Double, currentModule: String, filesScanned: Int, sizeFound: UInt64)
@@ -33,8 +14,9 @@ public final class ScanCoordinator: @unchecked Sendable {
     public private(set) var state: ScanState = .idle
     public private(set) var filesScanned: Int = 0
     public private(set) var totalSizeFound: UInt64 = 0
+    public private(set) var completedResults: [ModuleScanResult] = []
 
-    private var scanTask: Task<Void, Never>?
+    @ObservationIgnored private var scanTask: Task<Void, Never>?
     private var modules: [ScanModule] = []
 
     public init() {}
@@ -47,8 +29,8 @@ public final class ScanCoordinator: @unchecked Sendable {
         modules.append(contentsOf: newModules)
     }
 
-    public func scanAll() {
-        scanModules(modules.filter { $0.includedInSmartScan })
+    public func scanAll(onStateChange: (@MainActor (ScanState) -> Void)? = nil) {
+        scanModules(modules.filter { $0.includedInSmartScan }, onStateChange: onStateChange)
     }
 
     public func scanAllIncludingHeavy() {
@@ -67,14 +49,22 @@ public final class ScanCoordinator: @unchecked Sendable {
 
     public func cancel() {
         scanTask?.cancel()
+        scanTask = nil
+        filesScanned = 0
+        totalSizeFound = 0
+        completedResults = []
         state = .idle
     }
 
-    private func scanModules(_ modulesToScan: [ScanModule]) {
+    private func scanModules(
+        _ modulesToScan: [ScanModule],
+        onStateChange: (@MainActor (ScanState) -> Void)? = nil
+    ) {
         scanTask?.cancel()
 
         filesScanned = 0
         totalSizeFound = 0
+        completedResults = []
 
         scanTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -92,6 +82,8 @@ public final class ScanCoordinator: @unchecked Sendable {
                     filesScanned: self.filesScanned,
                     sizeFound: self.totalSizeFound
                 )
+
+                onStateChange?(self.state)
 
                 let start = Date()
                 let rawResults = await module.scan()
@@ -113,6 +105,7 @@ public final class ScanCoordinator: @unchecked Sendable {
                     scanDuration: duration
                 )
                 results.append(moduleResult)
+                self.completedResults = results
 
                 self.filesScanned += moduleResult.totalFileCount
                 self.totalSizeFound += moduleResult.totalSize
@@ -120,6 +113,7 @@ public final class ScanCoordinator: @unchecked Sendable {
 
             if !Task.isCancelled {
                 self.state = .completed(results: results)
+                onStateChange?(self.state)
             }
         }
     }

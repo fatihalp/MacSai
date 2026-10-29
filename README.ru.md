@@ -18,7 +18,6 @@
   <a href="https://github.com/iliyami/MacSai/releases/latest"><img src="https://img.shields.io/github/v/release/iliyami/MacSai?style=flat-square&color=blue" alt="Последний релиз" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-1048%20passing-brightgreen?style=flat-square" alt="Тесты" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen?style=flat-square" alt="Без телеметрии" />
   <img src="https://img.shields.io/badge/Apple-notarized-black?style=flat-square&logo=apple" alt="Заверено Apple" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="Лицензия" />
@@ -252,7 +251,6 @@ curl -fsSL https://raw.githubusercontent.com/iliyami/MacSai/main/scripts/install
 git clone https://github.com/iliyami/MacSai.git
 cd MacSai
 swift build
-swift test                     # запустить весь набор из 1048 тестов
 bash scripts/build-dmg.sh      # собрать локальный DMG (без подписи)
 ```
 
@@ -384,23 +382,13 @@ Mac Sai спроектирован так, чтобы **никогда не пр
 
 ---
 
-## Тесты
-
-```bash
-swift test
-```
-
-Набор на основе XCTest содержит **1048 тестов** и относится к `SafetyGuard` и `CleaningEngine` (файлам жизни и смерти) как к обязанным быть безупречными: состязательное покрытие символьных ссылок, обхода путей, NULL-байтов, SIP, защищённых приложений, ограничений на число файлов, TOCTOU и идемпотентности, плюс интеграционное покрытие пробного запуска / удаления в Корзину / необратимого удаления, конечного автомата сканирования, каждой категории системного мусора, математики карты, движка сопоставления удаления, обнаружения дубликатов, разбора appcast и полных сквозных циклов «от синтетического стенда до очистки». Стенды (`withTempHome`, `withFakeApp`, `withFakePlist`) гарантируют, что ни один тест не касается вашей настоящей домашней папки.
-
----
-
 ## Участие
 
 Мы очень рады вкладу. Прочитайте [руководство для участников](CONTRIBUTING.md), затем:
 
 1. Сделайте форк и создайте ветку с функцией
 2. Внесите изменение (одно сфокусированное изменение на PR упрощает ревью)
-3. Запустите `swift test`
+3. Запустите `swift build`
 4. Откройте Pull Request
 
 Также открыто [голосование за функции](https://github.com/iliyami/MacSai/issues/55): ставьте 👍 инструментам, которые хотите увидеть следующими.

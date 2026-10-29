@@ -303,3 +303,25 @@ public actor CleaningEngine {
         }
     }
 }
+
+public extension CleaningEngine.CleanResult {
+    func summary(selectedCount: Int) -> CleanSummary {
+        CleanSummary(
+            selectedCount: selectedCount,
+            removedCount: removedCount,
+            freedBytes: freedBytes,
+            errorMessages: errors.map(\.error)
+        )
+    }
+
+    func merging(_ other: Self) -> Self {
+        Self(
+            removedCount: removedCount + other.removedCount,
+            freedBytes: freedBytes + other.freedBytes,
+            removedURLs: removedURLs.union(other.removedURLs),
+            errors: errors + other.errors,
+            skippedCount: skippedCount + other.skippedCount,
+            trashedItems: trashedItems + other.trashedItems
+        )
+    }
+}
