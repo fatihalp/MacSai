@@ -4,13 +4,13 @@ import MacCleanKit
 struct SystemJunkView: View {
     @Environment(AppState.self) private var appState
     @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var viewModel = SystemJunkViewModel()
+    private var controller: SystemJunkController { appState.systemJunkController }
     @State private var showLargeSelectionConfirm = false
     @State private var showActivityLog = false
 
     var body: some View {
         Group {
-            switch viewModel.state {
+            switch controller.state {
             case .idle:
                 idleView
             case .scanning(let progress):
@@ -26,30 +26,17 @@ struct SystemJunkView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            if let e = appState.scanResultsStore.entry(for: .systemJunk) {
-                viewModel.restore(results: e.results, selection: e.selection, scanComplete: e.scanComplete)
-            }
-        }
-        .onDisappear {
-            appState.scanResultsStore.save(
-                results: viewModel.results,
-                selection: viewModel.exportedSelectedURLs(),
-                scanComplete: viewModel.isScanComplete,
-                for: .systemJunk
-            )
-        }
         .respondsToModuleShortcuts(
-            onScan: { viewModel.startScan() },
-            onClean: { viewModel.startCleaning(engine: appState.cleaningEngine) },
+            onScan: { controller.startScan() },
+            onClean: requestClean,
             canScan: {
-                switch viewModel.state {
+                switch controller.state {
                 case .idle, .empty, .done, .results: true
                 case .scanning, .cleaning: false
                 }
             }(),
             canClean: {
-                if case .results = viewModel.state { return viewModel.selectedCount > 0 }
+                if case .results = controller.state { return controller.selectedCount > 0 }
                 return false
             }()
         )
@@ -84,7 +71,7 @@ struct SystemJunkView: View {
                 subtitle: "System Junk",
                 theme: .cleanup
             ) {
-                viewModel.startScan()
+                controller.startScan()
             }
 
             Spacer()
@@ -97,8 +84,8 @@ struct SystemJunkView: View {
 
             ScanProgressRing(
                 progress: progress,
-                phase: viewModel.scanPhase,
-                detail: "\(viewModel.filesFound) files found",
+                phase: controller.scanPhase,
+                detail: "\(controller.filesFound) files found",
                 theme: .cleanup
             )
 
@@ -108,30 +95,24 @@ struct SystemJunkView: View {
 
     @ViewBuilder
     private var resultsView: some View {
-        if let review = viewModel.review {
+        if let review = controller.review {
             ReviewBrowserView(
                 data: review.data,
                 selection: review,
                 doneTitle: String(localized: "Clean"),
-                doneDisabled: viewModel.selectedCount == 0,
-                onDone: {
-                    if viewModel.selectedCount > MCConstants.cleanConfirmationThreshold {
-                        showLargeSelectionConfirm = true
-                    } else {
-                        viewModel.startCleaning(engine: appState.cleaningEngine)
-                    }
-                }
+                doneDisabled: controller.selectedCount == 0,
+                onDone: requestClean
             )
             .alert(
-                "Clean \(viewModel.selectedCount.formatted()) items?",
+                "Clean \(controller.selectedCount.formatted()) items?",
                 isPresented: $showLargeSelectionConfirm
             ) {
                 Button("Cancel", role: .cancel) { }
                 Button("Continue", role: .destructive) {
-                    viewModel.startCleaning(engine: appState.cleaningEngine)
+                    controller.startCleaning(engine: appState.cleaningEngine)
                 }
             } message: {
-                Text("That's about \(ByteCountFormatter.string(fromByteCount: Int64(viewModel.currentSelectedSize), countStyle: .file)) of data and may take several minutes. You can cancel mid-cleanup.")
+                Text("That's about \(ByteCountFormatter.string(fromByteCount: Int64(controller.currentSelectedSize), countStyle: .file)) of data and may take several minutes. You can cancel mid-cleanup.")
             }
         }
     }
@@ -148,7 +129,7 @@ struct SystemJunkView: View {
             Text("Your Mac is clean!")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.55))
-            Button("Done") { viewModel.reset() }
+            Button("Done") { controller.reset() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -172,7 +153,7 @@ struct SystemJunkView: View {
                     .foregroundStyle(.primary.opacity(0.65))
             }
 
-            Button("Cancel") { viewModel.cancelCleaning() }
+            Button("Cancel") { controller.cancelCleaning() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -293,7 +274,7 @@ struct SystemJunkView: View {
                     .controlSize(.large)
                     .help("Open the activity log to see every error and copy details for a bug report")
                 }
-                Button("Done") { viewModel.reset() }
+                Button("Done") { controller.reset() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
                     .controlSize(.large)
@@ -302,4 +283,13 @@ struct SystemJunkView: View {
         }
         .sheet(isPresented: $showActivityLog) { LogViewerView() }
     }
+    private func requestClean() {
+        guard controller.selectedCount > 0 else { return }
+        if controller.selectedCount > MCConstants.cleanConfirmationThreshold {
+            showLargeSelectionConfirm = true
+        } else {
+            controller.startCleaning(engine: appState.cleaningEngine)
+        }
+    }
+
 }

@@ -206,9 +206,9 @@ struct ContentView: View {
         case .systemJunk:
             SystemJunkView()
         case .mailAttachments:
-            MailAttachmentsView()
+            ScanModuleView(feature: .mailAttachments)
         case .trashBins:
-            TrashBinsView()
+            ScanModuleView(feature: .trashBins)
         case .diskHogs:
             DiskHogsView()
         case .projectJunk:
@@ -216,9 +216,9 @@ struct ContentView: View {
         case .cleanHistory:
             CleanHistoryView()
         case .malwareRemoval:
-            MalwareView()
+            ScanModuleView(feature: .malware)
         case .privacy:
-            PrivacyView()
+            ScanModuleView(feature: .privacy)
         case .browserExtensions:
             BrowserExtensionsView()
         case .wifiNetworks:
@@ -230,19 +230,19 @@ struct ContentView: View {
         case .maintenance:
             MaintenanceView()
         case .uninstaller:
-            UninstallerView()
+            UninstallerView(controller: appState.uninstallerController)
         case .unusedApps:
-            UnusedAppsView()
+            UnusedAppsView(controller: appState.unusedAppsController)
         case .extensions:
-            ExtensionsView()
+            ExtensionsView(controller: appState.extensionsController)
         case .updater:
             UpdaterView()
         case .spaceLens:
             SpaceLensView()
         case .largeOldFiles:
-            LargeOldFilesView()
+            ScanModuleView(feature: .largeOldFiles)
         case .duplicates:
-            DuplicatesView()
+            DuplicatesView(controller: appState.duplicatesController)
         case .shredder:
             ShredderView()
         case .settings:

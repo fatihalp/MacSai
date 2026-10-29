@@ -1,7 +1,4 @@
 #!/bin/bash
-# Verify that the VERSION file and MCConstants.appVersion stay in lockstep.
-# Run as a CI guard; loud failure beats a silent "v1.2.1" subtitle on the
-# v1.3.0 release.
 set -euo pipefail
 
 VERSION_FILE_VALUE=$(tr -d '[:space:]' < VERSION)

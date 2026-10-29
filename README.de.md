@@ -18,7 +18,6 @@
   <a href="https://github.com/iliyami/MacSai/releases/latest"><img src="https://img.shields.io/github/v/release/iliyami/MacSai?style=flat-square&color=blue" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-1048%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen?style=flat-square" alt="No telemetry" />
   <img src="https://img.shields.io/badge/Apple-notarized-black?style=flat-square&logo=apple" alt="Notarized" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
@@ -256,7 +255,6 @@ Hol dir das neueste DMG aus den [Releases](https://github.com/iliyami/MacSai/rel
 git clone https://github.com/iliyami/MacSai.git
 cd MacSai
 swift build
-swift test                     # die volle Suite mit 1.048 Tests ausführen
 bash scripts/build-dmg.sh      # ein lokales DMG bauen (unsigniert)
 ```
 
@@ -388,23 +386,13 @@ Mac Sai ist so entworfen, dass es **niemals Datenverlust verursacht**:
 
 ---
 
-## Tests
-
-```bash
-swift test
-```
-
-Die XCTest-Suite hat **1.048 Tests** und behandelt `SafetyGuard` und `CleaningEngine` (die Dateien über Leben und Tod) als muss-perfekt-sein: adversariale Abdeckung von Symlinks, Pfad-Traversierung, NULL-Bytes, SIP, geschützten Apps, Dateianzahl-Obergrenzen, TOCTOU und Idempotenz, plus Integrationsabdeckung von Probelauf- / Papierkorb- / permanenter Bereinigung, der Scan-Zustandsmaschine, jeder System-Junk-Kategorie, der Treemap-Mathematik, der Uninstaller-Suchmaschine, der Duplikaterkennung, des Appcast-Parsings und vollständiger End-to-End-Zyklen von Fixture bis Bereinigung. Fixtures (`withTempHome`, `withFakeApp`, `withFakePlist`) halten jeden Test von deinem echten Home-Verzeichnis fern.
-
----
-
 ## Mitwirken
 
 Beiträge sind sehr willkommen. Lies die [Richtlinien für Beiträge](CONTRIBUTING.md), dann:
 
 1. Forke das Repo und erstelle einen Feature-Branch
 2. Nimm deine Änderung vor (eine fokussierte Änderung pro PR erleichtert die Prüfung)
-3. Führe `swift test` aus
+3. Führe `swift build` aus
 4. Öffne einen Pull Request
 
 Es gibt auch eine offene [Feature-Abstimmung](https://github.com/iliyami/MacSai/issues/55): 👍 die Werkzeuge, die als Nächstes gebaut werden sollen.

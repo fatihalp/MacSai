@@ -18,7 +18,6 @@
   <a href="https://github.com/iliyami/MacSai/releases/latest"><img src="https://img.shields.io/github/v/release/iliyami/MacSai?style=flat-square&color=blue" alt="最新版本" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-1048%20passing-brightgreen?style=flat-square" alt="測試" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen?style=flat-square" alt="無遙測" />
   <img src="https://img.shields.io/badge/Apple-notarized-black?style=flat-square&logo=apple" alt="已公證" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="許可證" />
@@ -252,7 +251,6 @@ curl -fsSL https://raw.githubusercontent.com/iliyami/MacSai/main/scripts/install
 git clone https://github.com/iliyami/MacSai.git
 cd MacSai
 swift build
-swift test                     # 執行完整的 1048 個測試
 bash scripts/build-dmg.sh      # 構建本地 DMG（未簽名）
 ```
 
@@ -384,23 +382,13 @@ Mac Sai 的設計目標是**絕不造成資料丟失**：
 
 ---
 
-## 測試
-
-```bash
-swift test
-```
-
-基於 XCTest 的測試套件包含 **1048 個測試**，並把 `SafetyGuard` 和 `CleaningEngine`（生死攸關的檔案）視為必須完美：對符號連結、路徑穿越、NULL 位元組、SIP、受保護應用、檔案數量上限、TOCTOU 和冪等性的對抗式覆蓋，外加對預演 / 移入廢紙簍 / 永久刪除清理、掃描狀態機、每一個系統垃圾類別、樹狀圖演算法、解除安裝器匹配引擎、重複檔案檢測、appcast 解析，以及完整的“從合成夾具到清理”端到端流程的整合覆蓋。測試夾具（`withTempHome`、`withFakeApp`、`withFakePlist`）確保每個測試都不會觸碰你真實的個人目錄。
-
----
-
 ## 參與貢獻
 
 非常歡迎貢獻。請閱讀[貢獻指南](CONTRIBUTING.md)，然後：
 
 1. Fork 倉庫並建立功能分支
 2. 進行修改（每個 PR 聚焦一件事，便於審閱）
-3. 執行 `swift test`
+3. 執行 `swift build`
 4. 提交 Pull Request
 
 這裡還有一個開放的[功能投票](https://github.com/iliyami/MacSai/issues/55)：為你希望接下來構建的工具點 👍。

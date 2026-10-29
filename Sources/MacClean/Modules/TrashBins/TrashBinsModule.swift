@@ -24,6 +24,11 @@ public struct TrashBinsModule: ScanModule {
         return (results, outcome.permissionDenied)
     }
 
+    public func scanOutcome() async -> ModuleScanOutcome {
+        let outcome = await scanReportingPermissions()
+        return ModuleScanOutcome(results: outcome.results, permissionDenied: outcome.permissionDenied)
+    }
+
     private static func targets() -> [ScanTarget] {
         var targets: [ScanTarget] = [
 

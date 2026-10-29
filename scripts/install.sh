@@ -1,6 +1,4 @@
 #!/bin/bash
-# One-line installer for Mac Sai.
-# Usage: curl -fsSL https://raw.githubusercontent.com/iliyami/MacSai/main/scripts/install.sh | bash
 
 set -euo pipefail
 
@@ -12,7 +10,6 @@ cyan() { printf "\033[36m%s\033[0m\n" "$1"; }
 green() { printf "\033[32m%s\033[0m\n" "$1"; }
 red() { printf "\033[31m%s\033[0m\n" "$1"; }
 
-# Check macOS version
 OS_VERSION=$(sw_vers -productVersion | cut -d. -f1)
 if [ "$OS_VERSION" -lt 14 ]; then
     red "Mac Sai requires macOS 14 (Sonoma) or later. You have $(sw_vers -productVersion)."
@@ -32,8 +29,6 @@ fi
 cyan "Downloading Mac Sai $VERSION..."
 TMP=$(mktemp -d)
 DMG_PATH="$TMP/macclean.dmg"
-# Mount at a known path: `-quiet` prints nothing to parse, and the volume
-# name ("Mac Sai") contains a space.
 MOUNT="$TMP/mount"
 cleanup() {
     hdiutil detach -quiet "$MOUNT" 2>/dev/null || true
@@ -58,8 +53,6 @@ cp -R "$MOUNT/$APP_NAME" "$INSTALL_DIR/"
 cyan "Cleaning up..."
 cleanup
 trap - EXIT
-
-# Mac Sai is notarized by Apple, so no quarantine workaround is needed.
 
 green ""
 green "✓ Mac Sai $VERSION installed to $INSTALL_DIR/$APP_NAME"

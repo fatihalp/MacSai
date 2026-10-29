@@ -1,236 +1,47 @@
-# Contributing to Mac Sai
+# Contributing
 
-Thank you for your interest in contributing! Mac Sai is a community-driven project and we welcome contributions of all kinds — bug fixes, new features, documentation improvements, and more.
+Mac Sai uses Swift 6 and SwiftUI and supports macOS 14 or later.
 
-## Code of Conduct
+## Development
 
-Be respectful, constructive, and inclusive. We're building software together.
+1. Create a branch for the change.
+2. Keep the change focused and follow the architecture below.
+3. Run `swift build` and `swift build -c release`.
+4. Run `bash scripts/check-version-sync.sh` and `bash scripts/check-network-surface.sh`.
+5. Check the affected screens in the running app, including empty states and cancellation.
+6. Open a pull request describing the behavior and verification.
 
-## Getting Started
+## Architecture
 
-1. **Fork** the repository
-2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/MacSai.git`
-3. **Build**: `swift build`
-4. **Run tests**: `swift test` (must pass with 0 failures)
-5. **Create a branch**: `git checkout -b feature/your-feature`
+- `Sources/MacClean/Models`: application data, navigation types, and scan contracts.
+- `Sources/MacClean/Views`: SwiftUI layout, bindings, and confirmation dialogs.
+- `Sources/MacClean/Controllers`: observable state, user actions, and asynchronous task ownership.
+- `Sources/MacClean/Services`: result preparation, cleanup orchestration, and macOS integration.
+- `Sources/MacClean/Modules`: feature-specific scanning and system clients.
+- `Sources/MacClean/Core`: filesystem scanning, deletion, persistence, and monitoring.
+- `Sources/MacCleanKit`: shared models, policies, algorithms, localization, and utilities.
+- `Sources/MacCleanMenu`: menu bar helper and system statistics.
 
-## Pull Request Guidelines
+Views call controllers. Controllers coordinate modules and services. Shared rules belong in
+MacCleanKit. Use constructor injection for dependencies that vary; reuse the existing
+ScanModule contract and client structs before introducing another abstraction.
 
-### Before Submitting
+Prefer small concrete types and direct control flow. Keep presentation state in views,
+long-running operations in controllers, and filesystem policies in the shared library.
+Controllers that own UI state use `@MainActor @Observable`.
 
-- [ ] Your code compiles with `swift build` (zero errors)
-- [ ] All tests pass (`swift test`)
-- [ ] You've added tests for new functionality (see "Testing pattern" below)
-- [ ] No new compiler warnings introduced
-- [ ] You've tested the feature in the running app (not just compilation)
-- [ ] Safety-critical changes (`SafetyGuard.swift`, `CleaningEngine.swift`, `PlistJunkFilter.swift`) come with adversarial test cases
+The package has no automated test targets. Verification uses builds, static checks, and
+manual application checks. See [Architecture](docs/ARCHITECTURE.md) for the scan and cleanup flow.
 
-### PR Format
+## File operations
 
-```
-## Summary
-Brief description of what this PR does and why.
+Route deletions through SafetyGuard and CleaningEngine. Preserve protected paths, folder
+exclusions, explicit selection, cancellation, operation logs, and clean history.
+Move items to the Trash unless the selected feature explicitly requires permanent deletion.
+Do not use real user files for manual cleanup verification.
 
-## Changes
-- Bullet list of specific changes
+## Pull requests
 
-## Test Plan
-- How you tested this
-- Edge cases considered
-
-## Screenshots
-If UI changes, include before/after screenshots.
-```
-
-### PR Size
-
-- Keep PRs focused — one feature or fix per PR
-- Large features should be broken into smaller, reviewable chunks
-- Refactors should be separate from feature work
-
-### Commit Messages
-
-- Use present tense: "Add feature" not "Added feature"
-- First line under 72 characters
-- Reference issues when applicable: "Fix #42: handle empty scan results"
-
-## Testing pattern
-
-This is the architectural rule that every PR must follow. It's how the
-codebase stays testable without dragging in real filesystem state.
-
-**Rule:** *Business logic lives in `MacCleanKit` as pure functions; system
-dependencies (`FileManager`, `NSWorkspace`, `Process`, Mach APIs) are injected
-as closures at the boundary.* The thin wrappers in the `MacClean` target are
-where real implementations get wired up.
-
-### Example: the `PlistJunkFilter` pattern
-
-```swift
-// ❌ Don't do this — untestable, mixes logic with FS calls
-struct BrokenPreferencesCategory: JunkCategory {
-    func filterBroken(_ items: [FileItem]) -> [FileItem] {
-        items.filter { item in
-            guard let data = try? Data(contentsOf: item.url) else { return true }
-            // ... decision logic mixed with FS state ...
-        }
-    }
-}
-
-// ✅ Do this — pure function in Kit, injected loader, fully testable
-public enum PlistJunkFilter {
-    public static func isLikelyBroken(
-        at url: URL,
-        loadData: (URL) -> Data?,                  // injected
-        appExistsForBundleID: (String) -> Bool     // injected
-    ) -> Bool {
-        // pure decision logic — no I/O
-    }
-}
-
-// And the thin wrapper in MacClean target
-struct BrokenPreferencesCategory: JunkCategory {
-    func filterBroken(_ items: [FileItem]) -> [FileItem] {
-        items.filter { item in
-            PlistJunkFilter.isLikelyBroken(
-                at: item.url,
-                loadData: { try? Data(contentsOf: $0) },
-                appExistsForBundleID: { NSWorkspace.shared.urlForApplication(...) != nil }
-            )
-        }
-    }
-}
-```
-
-### Available test fixtures
-
-Use these helpers from `Tests/MacCleanTestSupport/` so your tests don't touch
-the real home directory:
-
-- `TestFixtures.withTempDir { dir in ... }` — temp dir, auto-cleaned
-- `TestFixtures.withTempHome { fakeHome in ... }` — synthetic `~/Library/...` tree
-- `TestFixtures.writeFakeApp(at:bundleIdentifier:name:)` — synthetic `.app` bundle
-- `TestFixtures.writePlist(_:to:)` and `writeCorruptPlist(at:)` — synthetic plists
-- `TestFixtures.writeFile(at:size:modificationDate:contents:)` — synthetic files
-- `MockClock` — controllable time for date-based logic
-
-### Where tests live
-
-- `Tests/MacCleanKitTests/` — pure unit tests against `MacCleanKit` only
-- `Tests/MacCleanTests/` — integration tests that exercise the `MacClean` shell
-- `Tests/MacCleanTestSupport/` — shared fixture helpers (don't add test cases here)
-
-## Code Style
-
-### Swift Conventions
-
-- **Swift 6** with strict concurrency — use actors, `@Sendable`, `async/await`
-- Use `@Observable` for view models (not `ObservableObject`)
-- Prefer `async/await` over completion handlers
-- Use `TaskGroup` for parallel work
-- No force unwrapping (`!`) except in tests
-
-### Architecture
-
-- **Modules** implement the `ScanModule` protocol
-- **Views** use `ModuleContainerView` for consistent scan/results/done flow
-- **Safety first** — all file operations go through `SafetyGuard` and `CleaningEngine`
-- Keep scanning logic in modules, not in views
-
-### File Organization
-
-```
-New module? Follow this structure:
-Sources/MacClean/Modules/YourModule/
-├── YourModuleModule.swift      # Implements ScanModule
-└── (optional helpers)
-
-Sources/MacClean/Views/YourSection/
-└── YourModuleView.swift        # SwiftUI view
-```
-
-### What NOT to Do
-
-- Don't bypass `SafetyGuard` for file operations
-- Don't add network calls without discussion (Mac Sai is offline-first)
-- Don't add telemetry or analytics
-- Don't add third-party dependencies without an issue discussion first
-- Don't modify protected paths lists without security review
-
-## Types of Contributions
-
-### Bug Reports
-
-Open an issue with:
-- macOS version
-- Steps to reproduce
-- Expected vs actual behavior
-- Console output (if relevant)
-
-### Feature Requests
-
-Open an issue describing:
-- What the feature does
-- Why it's useful
-- How CleanMyMac (or similar tools) handle it (if applicable)
-
-### New Scan Categories
-
-To add a new System Junk category:
-1. Create a new file in `Sources/MacClean/Modules/SystemJunk/Categories/`
-2. Implement the `JunkCategory` protocol
-3. Add it to the `SystemJunkModule` categories array
-4. Add a corresponding `ScanCategory` enum case
-5. Add tests in `Tests/`
-
-### New Modules
-
-To add a new scan module:
-1. Create `Sources/MacClean/Modules/YourModule/YourModuleModule.swift`
-2. Implement `ScanModule` protocol
-3. Create the view in `Sources/MacClean/Views/`
-4. Add sidebar entry in `SidebarView.swift`
-5. Wire it up in `ContentView.swift`
-6. Register in `AppState.swift`
-7. Add tests
-
-## Security
-
-If you discover a security vulnerability, please **do not** open a public issue. Instead, email the maintainers directly. We take security seriously and will respond promptly.
-
-### Security Review Required For
-
-- Changes to `SafetyGuard.swift`
-- Changes to protected paths in `Constants.swift`
-- Changes to `CleaningEngine.swift`
-- Changes to XPC helper operations
-- Any new file deletion logic
-
-## Development Tips
-
-### Running the App
-
-```bash
-# Quick launch (builds + creates .app bundle + opens)
-swift build && cp "$(swift build --show-bin-path)/MacClean" \
-  /tmp/MacClean.app/Contents/MacOS/MacClean && \
-  open /tmp/MacClean.app
-```
-
-### Dry-Run Mode
-
-The cleaning engine defaults to `dryRun` mode during development. To test actual cleaning:
-1. Change `.dryRun` to `.trash` in the relevant view's `clean()` method
-2. **Never** use `.permanent` during development
-3. Revert before committing
-
-### Full Disk Access
-
-Some modules need FDA to find results. If your scan returns empty:
-1. Build the app bundle (see README)
-2. Grant FDA in System Settings
-3. Restart the app
-
-## Questions?
-
-Open a discussion or issue — we're happy to help you get started.
+Describe the problem, resulting behavior, and commands used to verify the change.
+Include screenshots when changing the UI. Keep VERSION and MCConstants.appVersion in sync
+when changing the release version. Follow [Releasing](docs/RELEASING.md) for distribution.

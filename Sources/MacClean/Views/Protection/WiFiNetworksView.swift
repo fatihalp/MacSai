@@ -2,14 +2,8 @@ import SwiftUI
 import MacCleanKit
 
 struct WiFiNetworksView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var networks: [PreferredWiFiNetwork] = []
-    @State private var selected: Set<PreferredWiFiNetwork.ID> = []
-    @State private var isLoading = true
-    @State private var isForgetting = false
-    @State private var errorMessage: String?
+    @State private var controller = WiFiNetworksController()
     @State private var pendingForget: [PreferredWiFiNetwork]?
-    private let client = PreferredWiFiClient.live()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,25 +18,25 @@ struct WiFiNetworksView: View {
                 }
                 Spacer()
                 Button {
-                    Task { await reload() }
+                    Task { await controller.reload() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading || isForgetting)
+                .disabled(controller.isLoading || controller.isForgetting)
                 .help("Reload saved networks")
 
                 Button("Forget Selected") {
-                    pendingForget = selectedNetworks
+                    pendingForget = controller.selectedNetworks
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
-                .disabled(selected.isEmpty || isLoading || isForgetting)
+                .disabled(controller.selected.isEmpty || controller.isLoading || controller.isForgetting)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
             Group {
-                if isLoading {
+                if controller.isLoading {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
@@ -53,7 +47,7 @@ struct WiFiNetworksView: View {
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
                     }
-                } else if let errorMessage, networks.isEmpty {
+                } else if let errorMessage = controller.errorMessage, controller.networks.isEmpty {
                     VStack(spacing: 8) {
                         Spacer()
                         Text(errorMessage)
@@ -63,7 +57,7 @@ struct WiFiNetworksView: View {
                             .padding(.horizontal, 32)
                         Spacer()
                     }
-                } else if networks.isEmpty {
+                } else if controller.networks.isEmpty {
                     VStack {
                         Spacer()
                         Text("No saved Wi-Fi networks")
@@ -72,13 +66,13 @@ struct WiFiNetworksView: View {
                         Spacer()
                     }
                 } else {
-                    List(networks) { net in
+                    List(controller.networks) { net in
                         HStack(spacing: 10) {
                             Toggle("", isOn: Binding(
-                                get: { selected.contains(net.id) },
+                                get: { controller.selected.contains(net.id) },
                                 set: { on in
-                                    if on { selected.insert(net.id) }
-                                    else { selected.remove(net.id) }
+                                    if on { controller.selected.insert(net.id) }
+                                    else { controller.selected.remove(net.id) }
                                 }
                             ))
                             .toggleStyle(.checkbox)
@@ -111,8 +105,8 @@ struct WiFiNetworksView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .task { await reload() }
-        .respondsToModuleShortcuts(onScan: { Task { await reload() } }, canScan: !isLoading && !isForgetting)
+        .task { await controller.reload() }
+        .respondsToModuleShortcuts(onScan: { Task { await controller.reload() } }, canScan: !controller.isLoading && !controller.isForgetting)
         .alert(
             String(localized: "Forget selected networks?"),
             isPresented: Binding(
@@ -125,54 +119,17 @@ struct WiFiNetworksView: View {
             Button("Forget", role: .destructive) {
                 let captured = nets
                 pendingForget = nil
-                Task { await forget(captured) }
+                Task { await controller.forget(captured) }
             }
         } message: { nets in
             Text("\(nets.count) saved Wi-Fi \(nets.count == 1 ? "network" : "networks") will be removed from this Mac. macOS will ask for administrator access. Forgetting the network you are on may disconnect you.")
         }
         .alert("Saved Wi-Fi",
-               isPresented: Binding(get: { errorMessage != nil && !networks.isEmpty },
-                                    set: { if !$0 { errorMessage = nil } })) {
-            Button("OK", role: .cancel) { errorMessage = nil }
+               isPresented: Binding(get: { controller.errorMessage != nil && !controller.networks.isEmpty },
+                                    set: { if !$0 { controller.errorMessage = nil } })) {
+            Button("OK", role: .cancel) { controller.errorMessage = nil }
         } message: {
-            Text(errorMessage ?? "")
+            Text(controller.errorMessage ?? "")
         }
-    }
-
-    private var selectedNetworks: [PreferredWiFiNetwork] {
-        networks.filter { selected.contains($0.id) }
-    }
-
-    private func reload() async {
-        isLoading = true
-        errorMessage = nil
-        let result = await client.listNetworks()
-        switch result {
-        case .success(let list):
-            networks = list
-            selected = selected.intersection(Set(list.map(\.id)))
-        case .failure(let error):
-            networks = []
-            selected = []
-            errorMessage = error.localizedMessage
-        }
-        isLoading = false
-    }
-
-    private func forget(_ nets: [PreferredWiFiNetwork]) async {
-        guard !isForgetting else { return }
-        isForgetting = true
-        let result = await client.forget(nets)
-        switch result {
-        case .success:
-            selected.subtract(nets.map(\.id))
-            await reload()
-        case .failure(let error):
-            if error != .adminCancelled {
-                errorMessage = error.localizedMessage
-            }
-            await reload()
-        }
-        isForgetting = false
     }
 }

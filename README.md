@@ -18,7 +18,6 @@
   <a href="https://github.com/iliyami/MacSai/releases/latest"><img src="https://img.shields.io/github/v/release/iliyami/MacSai?style=flat-square&color=blue" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-1048%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/telemetry-none-brightgreen?style=flat-square" alt="No telemetry" />
   <img src="https://img.shields.io/badge/Apple-notarized-black?style=flat-square&logo=apple" alt="Notarized" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
@@ -256,11 +255,10 @@ Grab the latest DMG from [Releases](https://github.com/iliyami/MacSai/releases/l
 git clone https://github.com/iliyami/MacSai.git
 cd MacSai
 swift build
-swift test                     # run the full 1,048-test suite
 bash scripts/build-dmg.sh      # build a local DMG (unsigned)
 ```
 
-Requires the Swift 6 toolchain (Xcode 16+).
+Requires the Swift 6 toolchain (Xcode 16+). See [Architecture](docs/ARCHITECTURE.md) for the MVC structure and scan/cleanup flow.
 
 **Installed via the old tap?**
 
@@ -388,23 +386,13 @@ Mac Sai is designed to **never cause data loss**:
 
 ---
 
-## Tests
-
-```bash
-swift test
-```
-
-The XCTest suite has **1,048 tests** and treats `SafetyGuard` and `CleaningEngine` (the death-and-life files) as must-be-perfect: adversarial coverage of symlinks, path traversal, NULL bytes, SIP, protected apps, file-count caps, TOCTOU, and idempotence, plus integration coverage of dry-run / trash / permanent cleaning, the scan state machine, every System Junk category, the treemap math, the uninstaller matching engine, duplicate detection, appcast parsing, and full end-to-end fixture-to-clean cycles. Fixtures (`withTempHome`, `withFakeApp`, `withFakePlist`) keep every test off your real home directory.
-
----
-
 ## Contributing
 
 Contributions are very welcome. Read the [Contributing Guidelines](CONTRIBUTING.md), then:
 
 1. Fork the repo and create a feature branch
 2. Make your change (one focused change per PR keeps review easy)
-3. Run `swift test`
+3. Run `swift build`
 4. Open a Pull Request
 
 There is also an open [feature vote](https://github.com/iliyami/MacSai/issues/55): 👍 the tools you want built next.

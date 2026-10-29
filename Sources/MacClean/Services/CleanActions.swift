@@ -38,28 +38,11 @@ public enum CleanActions {
 
         let permanentResult = await engine.clean(items: dedupedPermanentItems, mode: .permanent,
                                                  onProgress: onProgress)
-        if Task.isCancelled {
-            return CleaningEngine.CleanResult(
-                removedCount: trashResult.removedCount + permanentResult.removedCount,
-                freedBytes: trashResult.freedBytes + permanentResult.freedBytes,
-                removedURLs: trashResult.removedURLs.union(permanentResult.removedURLs),
-                errors: trashResult.errors + permanentResult.errors,
-                skippedCount: trashResult.skippedCount + permanentResult.skippedCount,
-                trashedItems: trashResult.trashedItems
-            )
-        }
+        let combinedResult = trashResult.merging(permanentResult)
+        if Task.isCancelled { return combinedResult }
 
         let thinResult = await thinSelectedBinaries(thinItems)
-        return CleaningEngine.CleanResult(
-            removedCount: trashResult.removedCount + permanentResult.removedCount + thinResult.removedCount,
-            freedBytes: trashResult.freedBytes + permanentResult.freedBytes + thinResult.freedBytes,
-            removedURLs: trashResult.removedURLs
-                .union(permanentResult.removedURLs)
-                .union(thinResult.removedURLs),
-            errors: trashResult.errors + permanentResult.errors + thinResult.errors,
-            skippedCount: trashResult.skippedCount + permanentResult.skippedCount + thinResult.skippedCount,
-            trashedItems: trashResult.trashedItems
-        )
+        return combinedResult.merging(thinResult)
     }
 
     private static func thinSelectedBinaries(
@@ -128,21 +111,28 @@ public enum CleanActions {
         let sorted = items.sorted {
             $0.url.path(percentEncoded: false).count < $1.url.path(percentEncoded: false).count
         }
-        var keptPaths: [String] = []
+        var keptPaths: Set<String> = []
         keptPaths.reserveCapacity(sorted.count)
         var kept: [FileItem] = []
         kept.reserveCapacity(sorted.count)
         for item in sorted {
-            let path = item.url.path(percentEncoded: false)
-
-            let hasAncestor = keptPaths.contains { ancestor in
-                path != ancestor &&
-                path.hasPrefix(ancestor) &&
-                (ancestor.hasSuffix("/") || path.dropFirst(ancestor.count).first == "/")
+            let path: String = item.url.standardizedFileURL.path(percentEncoded: false)
+            guard !keptPaths.contains(path) else { continue }
+            var parent: URL = item.url.standardizedFileURL.deletingLastPathComponent()
+            var hasAncestor: Bool = false
+            while true {
+                let parentPath: String = parent.path(percentEncoded: false)
+                if keptPaths.contains(parentPath) {
+                    hasAncestor = true
+                    break
+                }
+                let next: URL = parent.deletingLastPathComponent()
+                if next == parent { break }
+                parent = next
             }
             if !hasAncestor {
                 kept.append(item)
-                keptPaths.append(path)
+                keptPaths.insert(path)
             }
         }
         return kept

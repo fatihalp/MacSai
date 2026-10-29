@@ -1,26 +1,8 @@
 import SwiftUI
-import Combine
 import MacCleanKit
 
-@MainActor
-private final class SpaceLensScanProgress: ObservableObject {
-    @Published var itemsScanned = 0
-}
-
 struct SpaceLensView: View {
-    @State private var rootNode: FileNode?
-    @State private var treemapRects: [TreemapRect] = []
-    @State private var isScanning = false
-    @State private var scanTask: Task<Void, Never>?
-    @State private var nav = SpaceLensNavigation(root: MCConstants.home)
-    @State private var selectedVolume: URL = URL(filePath: "/")
-    @StateObject private var scanProgress = SpaceLensScanProgress()
-
-    private let scanner = FileTreeScanner()
-
-    private var totalFormattedSize: String {
-        rootNode?.formattedTotalSize ?? ""
-    }
+    @State private var controller = SpaceLensController()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,8 +11,8 @@ struct SpaceLensView: View {
             content
         }
         .respondsToModuleShortcuts(
-            onScan: startScan,
-            canScan: !isScanning
+            onScan: controller.startScan,
+            canScan: !controller.isScanning
         )
     }
 
@@ -44,18 +26,18 @@ struct SpaceLensView: View {
                     Text("Visualize disk space usage")
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
-                    if !totalFormattedSize.isEmpty {
+                    if !controller.totalFormattedSize.isEmpty {
                         Text("·")
                             .foregroundStyle(.primary.opacity(0.3))
-                        Text(totalFormattedSize)
+                        Text(controller.totalFormattedSize)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.primary.opacity(0.7))
                     }
                 }
             }
             Spacer()
-            if !isScanning {
-                Button("Scan") { startScan() }
+            if !controller.isScanning {
+                Button("Scan") { controller.startScan() }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(nsColor: .systemBlue))
                     .controlSize(.regular)
@@ -67,28 +49,28 @@ struct SpaceLensView: View {
 
     private var breadcrumbBar: some View {
         Group {
-            if nav.breadcrumbs.count > 1 {
+            if controller.nav.breadcrumbs.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {
-                        Button { nav.up(); startScan() } label: { Image(systemName: "chevron.up") }
+                        Button { controller.nav.up(); controller.startScan() } label: { Image(systemName: "chevron.up") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
-                            .disabled(!nav.canGoUp)
+                            .disabled(!controller.nav.canGoUp)
                             .help("Up one level")
-                        Button { nav.home(); startScan() } label: { Image(systemName: "house") }
+                        Button { controller.nav.home(); controller.startScan() } label: { Image(systemName: "house") }
                             .buttonStyle(.plain).foregroundStyle(.primary.opacity(0.8))
-                            .disabled(!nav.canGoUp)
+                            .disabled(!controller.nav.canGoUp)
                             .help("Back to start")
 
-                        ForEach(nav.breadcrumbs, id: \.self) { url in
+                        ForEach(controller.nav.breadcrumbs, id: \.self) { url in
                             Button(url.lastPathComponent) {
-                                nav.navigate(to: url)
-                                startScan()
+                                controller.nav.navigate(to: url)
+                                controller.startScan()
                             }
                             .buttonStyle(.plain)
                             .foregroundStyle(.primary.opacity(0.7))
                             .font(.system(size: 12))
 
-                            if url != nav.breadcrumbs.last {
+                            if url != controller.nav.breadcrumbs.last {
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 9))
                                     .foregroundStyle(.primary.opacity(0.4))
@@ -104,7 +86,7 @@ struct SpaceLensView: View {
 
     @ViewBuilder
     private var content: some View {
-        if isScanning {
+        if controller.isScanning {
             Spacer()
             VStack(spacing: 14) {
                 ProgressView()
@@ -113,22 +95,20 @@ struct SpaceLensView: View {
                 Text("Scanning disk…")
                     .font(.system(size: 14))
                     .foregroundStyle(.primary.opacity(0.7))
-                if scanProgress.itemsScanned > 0 {
-                    Text("\(scanProgress.itemsScanned.formatted()) items scanned")
+                if controller.itemsScanned > 0 {
+                    Text("\(controller.itemsScanned.formatted()) items scanned")
                     .font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(.secondary)
                 }
                 Button("Cancel") {
-                    scanTask?.cancel()
-                    nav.cancelPendingNavigation()
-                    isScanning = false
+                    controller.cancelScan()
                 }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
             }
             Spacer()
-        } else if !treemapRects.isEmpty {
+        } else if !controller.treemapRects.isEmpty {
             GeometryReader { geo in
                 VStack(spacing: 0) {
                     treemapCanvas(containerSize: geo.size)
@@ -154,7 +134,7 @@ struct SpaceLensView: View {
         let canvasHeight = max(containerSize.height - 80, 200)
         let bounds = CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
 
-        let rects = SquarifiedTreemap.layout(nodes: treemapRects.map(\.node), in: bounds)
+        let rects = SquarifiedTreemap.layout(nodes: controller.treemapRects.map(\.node), in: bounds)
 
         return ZStack {
             ForEach(rects) { item in
@@ -205,8 +185,8 @@ struct SpaceLensView: View {
             .position(x: item.rect.midX, y: item.rect.midY)
             .onTapGesture {
                 if item.node.isDirectory {
-                    nav.drillInto(item.node.url)
-                    startScan()
+                    controller.nav.drillInto(item.node.url)
+                    controller.startScan()
                 }
             }
             .help(item.node.name + " (" + item.node.fileTypeCategory.label + ")")
@@ -228,42 +208,6 @@ struct SpaceLensView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
-        }
-    }
-
-    private func startScan() {
-        scanTask?.cancel()
-        isScanning = true
-        scanProgress.itemsScanned = 0
-        let root = nav.current
-        let progress = scanProgress
-        scanTask = Task {
-
-            let children = await scanner.topLevelSizes(root: root) { count in
-                Task { @MainActor in progress.itemsScanned = count }
-            }
-            guard !Task.isCancelled else { return }
-
-            let total = children.reduce(UInt64(0)) { $0 + $1.totalSize }
-            rootNode = FileNode(url: root, name: root.lastPathComponent, size: total, isDirectory: true)
-
-            let treemapNodes = children
-                .sorted { $0.totalSize > $1.totalSize }
-                .prefix(50)
-                .map { child in
-                    TreemapNode(
-                        name: child.name,
-                        size: child.totalSize,
-                        url: child.url,
-                        isDirectory: child.isDirectory,
-                        fileExtension: child.fileExtension
-                    )
-                }
-
-            let bounds = CGRect(x: 0, y: 0, width: 700, height: 400)
-            treemapRects = SquarifiedTreemap.layout(nodes: Array(treemapNodes), in: bounds)
-            nav.commitPendingNavigation()
-            isScanning = false
         }
     }
 }

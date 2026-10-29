@@ -3,14 +3,8 @@ import SwiftUI
 import MacCleanKit
 
 struct ExtensionsView: View {
-    @Environment(AppState.self) private var appState
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var items: [ManagedExtension] = []
-    @State private var isLoading = true
-    @State private var isRemoving = false
+    @Bindable var controller: ExtensionsController
     @State private var pendingRemove: ManagedExtension?
-    @State private var errorMessage: String?
-    private let client = ManagedExtensionsClient.live()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,18 +19,18 @@ struct ExtensionsView: View {
                 }
                 Spacer()
                 Button {
-                    Task { await reload() }
+                    Task { await controller.reload() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(isLoading || isRemoving)
+                .disabled(controller.isLoading || controller.isRemoving)
                 .help("Reload the extension list")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
             Group {
-                if isLoading {
+                if controller.isLoading {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
@@ -62,10 +56,10 @@ struct ExtensionsView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .task { await reload() }
+        .task { await controller.reload() }
         .respondsToModuleShortcuts(
-            onScan: { Task { await reload() } },
-            canScan: !isLoading && !isRemoving
+            onScan: { Task { await controller.reload() } },
+            canScan: !controller.isLoading && !controller.isRemoving
         )
         .alert(
             String(localized: "Move to Trash?"),
@@ -79,7 +73,7 @@ struct ExtensionsView: View {
             Button("Move to Trash", role: .destructive) {
                 let captured = item
                 pendingRemove = nil
-                Task { await remove(captured) }
+                Task { await controller.remove(captured) }
             }
         } message: { item in
             Text("\(item.name) will be moved to the Trash. You can restore it from the Trash if needed.")
@@ -87,40 +81,40 @@ struct ExtensionsView: View {
         .alert(
             String(localized: "Extensions"),
             isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
+                get: { controller.errorMessage != nil },
+                set: { if !$0 { controller.errorMessage = nil } }
             )
         ) {
-            Button("OK", role: .cancel) { errorMessage = nil }
+            Button("OK", role: .cancel) { controller.errorMessage = nil }
         } message: {
-            Text(errorMessage ?? "")
+            Text(controller.errorMessage ?? "")
         }
     }
 
     private var list: some View {
         List {
-            if items.isEmpty {
+            if controller.items.isEmpty {
                 Text("No third-party extensions, plug-ins, or preference panes found.")
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.4))
                 .listRowSeparator(.hidden)
             } else {
 
-                if items.contains(where: { $0.kind == .preferencePane }) {
+                if controller.items.contains(where: { $0.kind == .preferencePane }) {
                     section(
                         kind: .preferencePane,
                         title: String(localized: "Preference Panes"),
                         icon: "slider.horizontal.3"
                     )
                 }
-                if items.contains(where: { $0.kind == .internetPlugin }) {
+                if controller.items.contains(where: { $0.kind == .internetPlugin }) {
                     section(
                         kind: .internetPlugin,
                         title: String(localized: "Internet Plug-Ins"),
                         icon: "puzzlepiece.extension"
                     )
                 }
-                if items.contains(where: { $0.kind == .safariExtension }) {
+                if controller.items.contains(where: { $0.kind == .safariExtension }) {
                     safariSection
                 }
             }
@@ -129,7 +123,7 @@ struct ExtensionsView: View {
     }
 
     private var safariSection: some View {
-        let rows = items.filter { $0.kind == .safariExtension }
+        let rows = controller.items.filter { $0.kind == .safariExtension }
         return Section {
             if rows.isEmpty {
                 Text("No Safari extensions listed")
@@ -153,7 +147,7 @@ struct ExtensionsView: View {
                 .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 Button("Open Safari Settings") {
-                    client.openSafariSettings()
+                    controller.client.openSafariSettings()
                 }
                 .buttonStyle(.borderless)
             }
@@ -161,7 +155,7 @@ struct ExtensionsView: View {
     }
 
     private func section(kind: ManagedExtensionKind, title: String, icon: String) -> some View {
-        let rows = items.filter { $0.kind == kind }
+        let rows = controller.items.filter { $0.kind == kind }
         return Section {
             if rows.isEmpty {
                 Text("Nothing found")
@@ -210,21 +204,21 @@ struct ExtensionsView: View {
 
     @ViewBuilder
     private func actions(for item: ManagedExtension) -> some View {
-        let action = client.removal(for: item)
+        let action = controller.client.removal(for: item)
         if item.kind == .safariExtension, action == .none {
             Button("Open Settings") {
-                client.openSafariSettings()
+                controller.client.openSafariSettings()
             }
             .buttonStyle(.borderless)
             if let host = item.hostAppPath {
                 Button("Show Host App") {
-                    client.revealInFinder(host)
+                    controller.client.revealInFinder(host)
                 }
                 .buttonStyle(.borderless)
             }
         } else {
             Button("Reveal in Finder") {
-                client.revealInFinder(item.path)
+                controller.client.revealInFinder(item.path)
             }
             .buttonStyle(.borderless)
             if action == .trash {
@@ -233,7 +227,7 @@ struct ExtensionsView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.red)
-                .disabled(isRemoving)
+                .disabled(controller.isRemoving)
             }
         }
     }
@@ -249,42 +243,5 @@ struct ExtensionsView: View {
             return "\(location) · \(item.bundleIdentifier)"
         }
         return location
-    }
-
-    private func reload() async {
-        isLoading = true
-        items = await client.load()
-        isLoading = false
-    }
-
-    private func remove(_ item: ManagedExtension) async {
-        guard !isRemoving else { return }
-        isRemoving = true
-        let urls = client.trashURLs(from: [item])
-        guard !urls.isEmpty else {
-            errorMessage = String(localized: "This item was refused for safety reasons.")
-            isRemoving = false
-            return
-        }
-        let fileItems = urls.map { url in
-            FileItem(
-                url: url,
-                name: url.lastPathComponent,
-                size: 0,
-                allocatedSize: 0,
-                isDirectory: true,
-                isPackage: true
-            )
-        }
-        let result = await CleanActions.executeUserClean(
-            items: fileItems,
-            selectedItems: Set(urls),
-            engine: appState.cleaningEngine
-        )
-        if !result.errors.isEmpty {
-            errorMessage = "Couldn't move \(item.name) to the Trash."
-        }
-        await reload()
-        isRemoving = false
     }
 }

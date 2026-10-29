@@ -3,58 +3,13 @@ import AppKit
 import MacCleanKit
 
 struct SmartScanView: View {
+    private var controller: SmartScanController { appState.smartScanController }
     @Environment(AppState.self) private var appState
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var scanState: SmartScanState = .idle
-    @State private var completedModules: [CompletedModule] = []
-    @State private var currentModuleName: String = ""
-    @State private var cleanResults: [ScanResult] = []
-    @State private var askForSupport = false
     @State private var showCleanConfirm = false
-    @State private var cleanTask: Task<Void, Never>?
-
-    @State private var scanWatchTask: Task<Void, Never>?
-
-    @State private var review: ReviewSelection?
-
-    @State private var showingReview = false
-    @State private var reviewSectionID: String?
-
-    struct CompletedModule: Identifiable {
-        let id = UUID()
-        let name: String
-        let icon: String
-        let fileCount: Int
-        let size: UInt64
-    }
-
-    enum SmartScanState {
-        case idle
-        case scanning(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64)
-        case results(cleanup: UInt64, protection: Int, performance: Int, totalSize: UInt64, moduleResults: [ModuleScanResult])
-        case empty
-        case cleaning(progress: Double)
-        case done(freedSize: UInt64, breakdown: [SmartScanCleanup.RecentlyCleanedRow])
-    }
-
-    private static var moduleOrder: [(id: String, name: String, icon: String, group: String)] {
-        [
-            ("systemJunk", String(localized: "System Junk"), "trash.circle.fill", String(localized: "Cleanup")),
-            ("mailAttachments", String(localized: "Mail Attachments"), "paperclip.circle.fill", String(localized: "Cleanup")),
-            ("trashBins", String(localized: "Trash Bins"), "trash.fill", String(localized: "Cleanup")),
-            ("malware", String(localized: "Malware Removal"), "shield.lefthalf.filled", String(localized: "Protection")),
-            ("privacy", String(localized: "Privacy"), "hand.raised.fill", String(localized: "Protection")),
-            ("optimization", String(localized: "Optimization"), "gauge.with.dots.needle.67percent", String(localized: "Speed")),
-            ("maintenance", String(localized: "Maintenance"), "wrench.and.screwdriver", String(localized: "Speed")),
-            ("uninstaller", String(localized: "Uninstaller"), "xmark.app.fill", String(localized: "Apps")),
-            ("updater", String(localized: "Updater"), "arrow.triangle.2.circlepath", String(localized: "Apps")),
-            ("largeOldFiles", String(localized: "Large & Old Files"), "doc.richtext.fill", String(localized: "Files")),
-        ]
-    }
 
     var body: some View {
         Group {
-            switch scanState {
+            switch controller.scanState {
             case .idle:
                 idleView
             case .scanning(let phase, let progress, let filesFound, let sizeFound):
@@ -71,23 +26,23 @@ struct SmartScanView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .respondsToModuleShortcuts(
-            onScan: startScan,
+            onScan: controller.startScan,
             onClean: { showCleanConfirm = true },
             canScan: {
-                switch scanState {
+                switch controller.scanState {
                 case .idle, .empty, .done, .results: true
                 case .scanning, .cleaning: false
                 }
             }(),
             canClean: {
-                if case .results = scanState { return (review?.selectedCount ?? 0) > 0 }
+                if case .results = controller.scanState { return (controller.review?.selectedCount ?? 0) > 0 }
                 return false
             }()
         )
     }
 
     private var idleView: some View {
-        HomeDashboardView(onStartScan: startScan)
+        HomeDashboardView(onStartScan: controller.startScan)
     }
 
     private func scanningView(phase: String, progress: Double, filesFound: Int, sizeFound: UInt64) -> some View {
@@ -120,7 +75,7 @@ struct SmartScanView: View {
 
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(Array(Self.moduleOrder.enumerated()), id: \.offset) { index, module in
+                    ForEach(Array(SmartScanModules.order.enumerated()), id: \.offset) { index, module in
                         moduleRow(module: module, currentPhase: phase)
                     }
                 }
@@ -135,7 +90,7 @@ struct SmartScanView: View {
             )
             .padding(.horizontal, 20)
 
-            Button("Cancel") { cancelScan() }
+            Button("Cancel") { controller.cancelScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -145,8 +100,8 @@ struct SmartScanView: View {
 
     private func moduleRow(module: (id: String, name: String, icon: String, group: String), currentPhase: String) -> some View {
         let isActive = currentPhase == module.name
-        let completed = completedModules.contains { $0.name == module.name }
-        let completedInfo = completedModules.first { $0.name == module.name }
+        let completed = controller.completedModules.contains { $0.name == module.name }
+        let completedInfo = controller.completedModules.first { $0.name == module.name }
 
         return HStack(spacing: 10) {
 
@@ -222,14 +177,14 @@ struct SmartScanView: View {
 
     @ViewBuilder
     private func resultsView(totalSize: UInt64) -> some View {
-        let selectedCount = review?.selectedCount ?? 0
+        let selectedCount = controller.review?.selectedCount ?? 0
         Group {
-            if showingReview, let review {
+            if controller.showingReview, let review = controller.review {
                 ReviewBrowserView(
                     data: review.data,
                     selection: review,
-                    initialSectionID: reviewSectionID,
-                    onDone: { showingReview = false },
+                    initialSectionID: controller.reviewSectionID,
+                    onDone: { controller.showingReview = false },
                     onClean: { showCleanConfirm = true }
                 )
             } else {
@@ -239,8 +194,8 @@ struct SmartScanView: View {
         .alert("Clean \(selectedCount) item\(selectedCount == 1 ? "" : "s")?", isPresented: $showCleanConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Clean", role: .destructive) {
-                showingReview = false
-                runCleanup()
+                controller.showingReview = false
+                controller.runCleanup()
             }
         } message: {
             Text("Selected items will be moved to the Trash so you can recover them if needed.")
@@ -248,26 +203,26 @@ struct SmartScanView: View {
     }
 
     private func resultsSummary(totalSize: UInt64) -> some View {
-        let selectedCount = review?.selectedCount ?? 0
-        let selectedSize = review?.selectedSize ?? 0
+        let selectedCount = controller.review?.selectedCount ?? 0
+        let selectedSize = controller.review?.selectedSize ?? 0
         return VStack(spacing: 20) {
             SizeDisplay(size: totalSize, label: String(localized: "of junk found"))
                 .foregroundStyle(.primary)
                 .padding(.top, 24)
 
             HStack(spacing: 24) {
-                if case .results(let cleanup, _, _, _, _) = scanState {
+                if case .results(let cleanup, _, _, _, _) = controller.scanState {
                     resultPill(icon: "trash.circle.fill", label: String(localized: "Cleanup"), value: FileSizeFormatter.format(cleanup))
                 }
-                if case .results(_, let threats, _, _, _) = scanState {
+                if case .results(_, let threats, _, _, _) = controller.scanState {
                     resultPill(icon: "shield.lefthalf.filled", label: String(localized: "Protection"), value: "\(threats) threats")
                 }
-                if case .results(_, _, let perf, _, _) = scanState {
+                if case .results(_, _, let perf, _, _) = controller.scanState {
                     resultPill(icon: "gauge.with.dots.needle.67percent", label: String(localized: "Speed"), value: "\(perf) items")
                 }
             }
 
-            if let review {
+            if let review = controller.review {
                 HStack(spacing: 8) {
                     Button("Select All") {
                         review.applyToAll(.all)
@@ -311,14 +266,14 @@ struct SmartScanView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
-                    reviewSectionID = nil
-                    showingReview = true
+                    controller.reviewSectionID = nil
+                    controller.showingReview = true
                 } label: {
                     Label("Review Details", systemImage: "list.bullet.rectangle")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(review == nil)
+                .disabled(controller.review == nil)
 
                 Button { showCleanConfirm = true } label: {
                     Text("Clean · \(FileSizeFormatter.format(selectedSize))")
@@ -346,8 +301,8 @@ struct SmartScanView: View {
                     .foregroundStyle(Color(nsColor: .systemBlue))
                 Spacer()
                 Button {
-                    reviewSectionID = section.id
-                    showingReview = true
+                    controller.reviewSectionID = section.id
+                    controller.showingReview = true
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
@@ -356,8 +311,8 @@ struct SmartScanView: View {
                 .buttonStyle(.plain)
             }
             Button {
-                reviewSectionID = section.id
-                showingReview = true
+                controller.reviewSectionID = section.id
+                controller.showingReview = true
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(section.name)
@@ -398,7 +353,7 @@ struct SmartScanView: View {
             Text("No junk, threats, or performance issues found")
                 .font(.system(size: 14))
                 .foregroundStyle(.primary.opacity(0.6))
-            Button("Done") { resetScan() }
+            Button("Done") { controller.resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -411,7 +366,7 @@ struct SmartScanView: View {
             Spacer()
             ScanProgressRing(progress: progress, phase: String(localized: "Cleaning your Mac..."), theme: .smartScan)
 
-            Button("Cancel") { cleanTask?.cancel() }
+            Button("Cancel") { controller.cancelCleaning() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -469,8 +424,8 @@ struct SmartScanView: View {
                 .foregroundStyle(.primary.opacity(0.65))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
-            if askForSupport { SupportCard() }
-            Button("Done") { resetScan() }
+            if controller.askForSupport { SupportCard() }
+            Button("Done") { controller.resetScan() }
                 .buttonStyle(.bordered)
                 .tint(.primary)
                 .controlSize(.large)
@@ -487,30 +442,6 @@ struct SmartScanView: View {
         return "\(size) (\(row.itemCount) items)"
     }
 
-    private func resetScan() {
-        cleanTask?.cancel()
-        cleanTask = nil
-        scanWatchTask?.cancel()
-        scanWatchTask = nil
-        review = nil
-        showingReview = false
-        reviewSectionID = nil
-        cleanResults = []
-        askForSupport = false
-        completedModules = []
-        currentModuleName = ""
-        scanState = .idle
-    }
-
-    private func cancelScan() {
-        appState.scanCoordinator.cancel()
-        scanWatchTask?.cancel()
-        scanWatchTask = nil
-        completedModules = []
-        currentModuleName = ""
-        scanState = .idle
-    }
-
     private func resultPill(icon: String, label: String, value: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
@@ -525,147 +456,5 @@ struct SmartScanView: View {
         .frame(width: 110, height: 90)
         .background(.primary.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func startScan() {
-        completedModules = []
-        currentModuleName = ""
-        scanWatchTask?.cancel()
-
-        scanWatchTask = Task {
-            scanState = .scanning(phase: String(localized: "Analyzing system..."), progress: 0, filesFound: 0, sizeFound: 0)
-            appState.scanCoordinator.scanAll()
-
-            var previousModule = ""
-            var previousFiles = 0
-            var previousSize: UInt64 = 0
-
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(80))
-                if Task.isCancelled { return }
-
-                switch appState.scanCoordinator.state {
-                case .scanning(let progress, let module, let files, let size):
-
-                    if module != previousModule && !previousModule.isEmpty {
-                        let filesInModule = files - previousFiles
-                        let sizeInModule = size - previousSize
-
-                        let icon = Self.moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
-                        completedModules.append(CompletedModule(
-                            name: previousModule,
-                            icon: icon,
-                            fileCount: filesInModule,
-                            size: sizeInModule
-                        ))
-
-                        previousFiles = files
-                        previousSize = size
-                    }
-                    previousModule = module
-                    currentModuleName = module
-                    scanState = .scanning(phase: module, progress: progress, filesFound: files, sizeFound: size)
-
-                case .completed(let results):
-
-                    if !previousModule.isEmpty {
-                        let totalFiles = results.reduce(0) { $0 + $1.totalFileCount }
-                        let totalSize = results.reduce(0 as UInt64) { $0 + $1.totalSize }
-                        let filesInModule = totalFiles - previousFiles
-                        let sizeInModule = totalSize - previousSize
-                        let icon = Self.moduleOrder.first { $0.name == previousModule }?.icon ?? "circle"
-                        completedModules.append(CompletedModule(
-                            name: previousModule,
-                            icon: icon,
-                            fileCount: filesInModule,
-                            size: sizeInModule
-                        ))
-                    }
-
-                    let totalSize = results.reduce(0 as UInt64) { $0 + $1.totalSize }
-                    if totalSize == 0 && results.allSatisfy({ $0.totalFileCount == 0 }) {
-                        scanState = .empty
-                    } else {
-
-                        scanState = .scanning(
-                            phase: String(localized: "Preparing results..."),
-                            progress: 1,
-                            filesFound: results.reduce(0) { $0 + $1.totalFileCount },
-                            sizeFound: totalSize
-                        )
-                        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-                        let data = await Task.detached(priority: .userInitiated) {
-                            ReviewDataBuilder.build(
-                                modules: results,
-                                runningBundleIDs: running,
-                                includeEmptySystemJunkCategories: true
-                            )
-                        }.value
-                        if Task.isCancelled { return }
-                        cleanResults = SmartScanCleanup.allResults(from: results)
-                        review = ReviewSelection(data: data)
-                        showingReview = true
-                        reviewSectionID = nil
-                        scanState = .results(
-                            cleanup: totalSize,
-                            protection: 0,
-                            performance: 0,
-                            totalSize: totalSize,
-                            moduleResults: results
-                        )
-                    }
-                    return
-
-                case .failed:
-                    scanState = .idle
-                    return
-
-                case .idle:
-
-                    continue
-                }
-            }
-        }
-    }
-
-    private func runCleanup() {
-
-        let modules: [ModuleScanResult]
-        if case .results(_, _, _, _, let moduleResults) = scanState {
-            modules = moduleResults
-        } else {
-            modules = []
-        }
-        let results = cleanResults
-        let reviewData = review?.data
-        let flags = review?.snapshot() ?? []
-        scanState = .cleaning(progress: 0)
-        cleanTask = Task {
-            let selection: Set<URL> = await Task.detached(priority: .userInitiated) {
-                reviewData?.selectedURLs(flags: flags) ?? []
-            }.value
-            let result = await CleanActions.executeUserClean(
-                results: results,
-                selectedItems: selection,
-                engine: appState.cleaningEngine,
-                onProgress: { p in Task { @MainActor in
-
-                    if case .cleaning = scanState {
-                        scanState = .cleaning(progress: p.fraction)
-                    }
-                } }
-            )
-            let breakdown = SmartScanCleanup.recentlyCleanedBreakdown(
-                from: modules,
-                selectedItems: result.removedURLs
-            )
-            askForSupport = SupportAskLedger.shared.shouldAsk(for: CleanSummary(
-                selectedCount: selection.count,
-                removedCount: result.removedCount,
-                freedBytes: result.freedBytes,
-                errorMessages: []
-            ))
-            scanState = .done(freedSize: result.freedBytes, breakdown: breakdown)
-        }
     }
 }

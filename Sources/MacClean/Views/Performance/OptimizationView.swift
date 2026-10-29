@@ -2,16 +2,8 @@ import SwiftUI
 import MacCleanKit
 
 struct OptimizationView: View {
-    @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
-    @State private var loginItems: [AutoStartItem] = []
-    @State private var launchAgents: [AutoStartItem] = []
-    @State private var launchDaemons: [AutoStartItem] = []
+    @State private var controller = OptimizationController()
     @State private var selectedTab = 0
-    @State private var isLoading = true
-    @State private var showAlert = false
-    @State private var alertMessage = ""
-
-    private let manager = AutoStartManager()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +19,7 @@ struct OptimizationView: View {
                 Spacer()
 
                 Button {
-                    refresh()
+                    controller.refresh()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -53,7 +45,7 @@ struct OptimizationView: View {
                     ResourceHogsView()
                 } else if selectedTab == 4 {
                     FileHandlerView()
-                } else if isLoading {
+                } else if controller.isLoading {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
@@ -67,10 +59,10 @@ struct OptimizationView: View {
                 } else {
                     Group {
                         switch selectedTab {
-                        case 1:  itemList(items: loginItems)
-                        case 2:  itemList(items: launchAgents)
-                        case 3:  itemList(items: launchDaemons)
-                        default: itemList(items: loginItems)
+                        case 1:  itemList(items: controller.loginItems)
+                        case 2:  itemList(items: controller.launchAgents)
+                        case 3:  itemList(items: controller.launchDaemons)
+                        default: itemList(items: controller.loginItems)
                         }
                     }
                 }
@@ -84,10 +76,10 @@ struct OptimizationView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .alert(alertMessage, isPresented: $showAlert) {
-            Button("OK") { showAlert = false }
+        .alert(controller.alertMessage, isPresented: $controller.showAlert) {
+            Button("OK") { controller.showAlert = false }
         }
-        .task { refresh() }
+        .task { controller.refresh() }
     }
 
     @ViewBuilder
@@ -108,27 +100,14 @@ struct OptimizationView: View {
             List {
                 ForEach(items, id: \.id) { item in
                     ItemRow(item: item, onToggle: { newVal in
-                        do {
-                            try manager.toggleItem(item, enabled: newVal)
-                            refresh()
-                        } catch {
-                            alertMessage = error.localizedDescription
-                            showAlert = true
-                        }
+                        controller.toggle(item, enabled: newVal)
                     }, onOpenConfig: {
-                        manager.openConfigInFinder(item)
+                        controller.openConfig(item)
                     })
                 }
             }
             .listStyle(.inset)
         }
-    }
-
-    private func refresh() {
-        loginItems = manager.getLoginItems()
-        launchAgents = manager.getLaunchAgents()
-        launchDaemons = manager.getLaunchDaemons()
-        isLoading = false
     }
 }
 

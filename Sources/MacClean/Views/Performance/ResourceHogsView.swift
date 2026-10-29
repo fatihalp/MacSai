@@ -3,22 +3,13 @@ import AppKit
 import MacCleanKit
 
 struct ResourceHogsView: View {
-    @State private var rows: [ResourceHogRow] = []
-    @State private var sortBy: ResourceHogsPolicy.SortKey = .cpu
-    @State private var isLoading = true
-    @State private var pendingQuit: ResourceHogRow?
+    @State private var controller = ResourceHogsController()
     @State private var showQuitConfirm = false
-    @State private var statusMessage: String?
-    @State private var showStatus = false
-
-    private let collector = ProcessStatsCollector()
-    private let monitor = ProcessMonitor()
-    private let listLimit = 40
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker("Sort", selection: $sortBy) {
+                Picker("Sort", selection: $controller.sortBy) {
                     Text("CPU").tag(ResourceHogsPolicy.SortKey.cpu)
                     Text("Memory").tag(ResourceHogsPolicy.SortKey.memory)
                 }
@@ -37,7 +28,7 @@ struct ResourceHogsView: View {
             .padding(.vertical, 10)
 
             Group {
-                if isLoading && rows.isEmpty {
+                if controller.isLoading && controller.rows.isEmpty {
                     VStack(spacing: 12) {
                         Spacer()
                         ProgressView()
@@ -48,7 +39,7 @@ struct ResourceHogsView: View {
                             .foregroundStyle(.primary.opacity(0.6))
                         Spacer()
                     }
-                } else if rows.isEmpty {
+                } else if controller.rows.isEmpty {
                     VStack(spacing: 8) {
                         Spacer()
                         Image(systemName: "gauge.with.dots.needle.67percent")
@@ -62,9 +53,9 @@ struct ResourceHogsView: View {
                     .frame(maxWidth: .infinity)
                 } else {
                     List {
-                        ForEach(rows) { row in
+                        ForEach(controller.rows) { row in
                             ResourceHogRowView(row: row) {
-                                pendingQuit = row
+                                controller.pendingQuit = row
                                 showQuitConfirm = true
                             }
                         }
@@ -74,70 +65,27 @@ struct ResourceHogsView: View {
             }
         }
         .task {
-            await refresh()
-
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            await refresh()
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                await refresh()
-            }
+            await controller.monitorProcesses()
         }
-        .onChange(of: sortBy) { _, _ in
-            Task { await refresh() }
+        .onChange(of: controller.sortBy) { _, _ in
+            Task { await controller.refresh() }
         }
         .alert(
-            "Force Quit \(pendingQuit?.snapshot.name ?? "")?",
+            "Force Quit \(controller.pendingQuit?.snapshot.name ?? "")?",
             isPresented: $showQuitConfirm
         ) {
             Button("Cancel", role: .cancel) {
-                pendingQuit = nil
+                controller.pendingQuit = nil
             }
             Button("Force Quit", role: .destructive) {
-                quitPending()
+                controller.quitPending()
             }
         } message: {
             Text("Unsaved work may be lost.")
         }
-        .alert(statusMessage ?? "", isPresented: $showStatus) {
-            Button("OK") { showStatus = false }
+        .alert(controller.statusMessage ?? "", isPresented: $controller.showStatus) {
+            Button("OK") { controller.showStatus = false }
         }
-    }
-
-    @MainActor
-    private func refresh() async {
-        let stats = await collector.getProcessStats()
-        let snapshots = stats.map {
-            ResourceHogSnapshot(
-                pid: $0.id,
-                name: $0.name,
-                cpuPercent: $0.cpuPercent,
-                memoryBytes: $0.memoryBytes,
-                bundleIdentifier: $0.bundleIdentifier
-            )
-        }
-        rows = ResourceHogsPolicy.rows(from: snapshots, sortBy: sortBy, limit: listLimit)
-        isLoading = false
-    }
-
-    private func quitPending() {
-        guard let row = pendingQuit else { return }
-        pendingQuit = nil
-        guard row.canQuit else {
-            statusMessage = String(localized: "That process is protected and cannot be quit.")
-            showStatus = true
-            return
-        }
-
-        guard let live = NSRunningApplication(processIdentifier: row.snapshot.pid),
-              live.bundleIdentifier == row.snapshot.bundleIdentifier,
-              ResourceHogsPolicy.canQuit(bundleIdentifier: live.bundleIdentifier) else {
-            statusMessage = String(localized: "That process is no longer running.")
-            showStatus = true
-            return
-        }
-        monitor.forceQuit(pid: row.snapshot.pid)
-        Task { await refresh() }
     }
 }
 
