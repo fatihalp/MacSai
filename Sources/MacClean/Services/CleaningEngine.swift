@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import MacCleanKit
 import OSLog
@@ -86,6 +87,10 @@ public actor CleaningEngine {
             )
         }
 
+        let runningBundleIDs = Set(await MainActor.run {
+            NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier?.lowercased() }
+        })
+
         var removedCount = 0
         var freedBytes: UInt64 = 0
         var removedURLs = Set<URL>()
@@ -104,6 +109,7 @@ public actor CleaningEngine {
 
             processChunk(
                 chunk, mode: mode,
+                runningBundleIDs: runningBundleIDs,
                 removedCount: &removedCount,
                 freedBytes: &freedBytes,
                 removedURLs: &removedURLs,
@@ -138,6 +144,7 @@ public actor CleaningEngine {
     private func processChunk(
         _ chunk: [FileItem],
         mode: CleanMode,
+        runningBundleIDs: Set<String>,
         removedCount: inout Int,
         freedBytes: inout UInt64,
         removedURLs: inout Set<URL>,
@@ -173,6 +180,12 @@ public actor CleaningEngine {
                     path: item.url.path(percentEncoded: false),
                     error: error.localizedDescription
                 ))
+                continue
+            }
+
+            if AppCacheOwnership.isOwnedByRunningApp(item.url, runningBundleIDs: runningBundleIDs) {
+                skippedCount += 1
+                logSkip(path: item.url, reason: "owned by a running app")
                 continue
             }
 

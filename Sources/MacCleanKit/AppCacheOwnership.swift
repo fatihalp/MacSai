@@ -19,6 +19,16 @@ public enum AppCacheOwnership {
         return nil
     }
 
+    public static func isOwnedByRunningApp(_ url: URL, runningBundleIDs: Set<String>) -> Bool {
+        if url.pathExtension == "app",
+           let bundleID: String = Bundle(url: url)?.bundleIdentifier,
+           runningBundleIDs.contains(bundleID.lowercased()) {
+            return true
+        }
+        guard let owner: String = owningBundleID(for: url)?.lowercased() else { return false }
+        return runningBundleIDs.contains { owner == $0 || owner.hasPrefix($0 + ".") }
+    }
+
     private static func looksLikeBundleID(_ string: String) -> Bool {
         guard string.split(separator: ".").count >= 2 else { return false }
         return string.allSatisfy { $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" }
