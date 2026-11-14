@@ -382,5 +382,5 @@ public enum MCConstants {
 
     public static let supportURL = URL(string: "https://buymeacoffee.com/iliyami")!
 
-    public static let appVersion = "1.26.0"
+    public static let appVersion = "1.27.0"
 }
